@@ -283,9 +283,9 @@
             <div class="upload-progress-fill" id="rosterProgressFill"></div>
             <span class="upload-progress-label" id="rosterProgressLabel">0%</span>
           </div>
-          <div style="display:none; gap:8px; margin-top:12px;" id="confirmListActions">
-            <button type="button" class="btn-primary" id="downloadConfirmListInlineBtn" style="flex:1; padding:12px; font-size:13.5px;">DOWNLOAD CONFIRMATION LIST</button>
-            <button type="button" class="btn-ghost export-text-btn" id="copyConfirmListTextBtn" style="padding:12px 16px;">TEXT</button>
+          <div style="display:none; flex-direction:column; gap:8px; margin-top:12px;" id="confirmListActions">
+            <button type="button" class="btn-primary export-btn" id="downloadConfirmListInlineBtn">DOWNLOAD CONFIRMATION LIST</button>
+            <button type="button" class="btn-ghost export-text-btn" id="copyConfirmListTextBtn">TEXT</button>
           </div>
         </div>
 
@@ -318,7 +318,7 @@
           <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
             <div style="flex:1; display:flex; flex-direction:column;">
               <label for="stationCode" class="sr-only">Station code</label>
-              <input type="text" id="stationCode" placeholder="Station code" value="" style="flex:1; height:auto;">
+              <input type="text" id="stationCode" placeholder="Station code" value="DLS4" style="flex:1; height:auto;">
             </div>
             <div style="flex:1; display:flex; flex-direction:column;">
               <label for="planDate" class="sr-only">Date</label>
@@ -809,6 +809,22 @@ document.getElementById('rosterFile').addEventListener('change', async (e) => {
     lastRoster = null;
   }
   updateStepper();
+
+  // The confirmation list is often generated before the Routes file even
+  // exists (it's built from the roster alone), so the Routes-filename
+  // date auto-fill below hasn't had a chance to run yet. Read the date
+  // straight from the roster filename instead, if it's there — matches
+  // "YYYY-MM-DD" anywhere in the name (e.g. "van_roster_2026-08-31.xlsx",
+  // "DLS4_ROSTER_2026-08-31.csv") — so the confirmation list's caption and
+  // PNG date are correct without typing the date in by hand.
+  if(!parseError){
+    const dateMatch = file.name.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if(dateMatch){
+      const [, y, mo, d] = dateMatch;
+      document.getElementById('planDate').value = `${d}/${mo}/${y.slice(2)}`;
+      refreshDetailsStatus();
+    }
+  }
   // Pill and the confirm-list button both stay hidden/EMPTY until the bar
   // itself actually reaches 100% — not the instant the file finishes
   // parsing underneath, same idea as the paste boxes above.
@@ -1498,24 +1514,46 @@ function imgDrawTopChrome(ctx, x0, x1, y, brandWord, brandRest, taglineTxt, summ
   ctx.fillStyle = IMG_BLACK;
   ctx.fillRect(x0, headerY0, x1 - x0, IMG_HEADER_H);
 
-  const brandF = pf('bold', 82);
   const taglineF = pf('medium', 18.4);
 
   // Station code (e.g. "DLS4") in red, a visible gap, then the title in
-  // white — "DLS4 DEPLOYMENT PLAN" / "DLS4 MANUAL PICKUP", centered.
-  const brandGap = IS(20);
-  const titleW1 = imgTextW(ctx, brandWord, brandF);
-  const titleW2 = imgTextW(ctx, brandRest, brandF);
-  const titleW = titleW1 + brandGap + titleW2;
+  // white — "DLS4 DEPLOYMENT PLAN" / "DLS4 MANUAL PICKUP" / "DLS4 SAMEDAY
+  // ATTENDANCE", centered. Auto-shrinks from 82pt so a longer title (the
+  // confirmation list's narrower card) never overflows or gets clipped —
+  // the two wider reports' titles already fit at 82pt, so this never
+  // changes their appearance.
+  const maxTitleW = (x1 - x0) - IS(56);
+  const brandSizes = [82, 76, 70, 64, 58, 52, 46, 40, 36, 32, 28, 24];
+  let brandSize = brandSizes[brandSizes.length - 1];
+  let brandF, titleW1, titleW2, titleW, brandGap;
+  for (const sz of brandSizes) {
+    const f = pf('bold', sz);
+    const gap = IS(20 * sz / 82);
+    const w1 = imgTextW(ctx, brandWord, f);
+    const w2 = imgTextW(ctx, brandRest, f);
+    if (w1 + gap + w2 <= maxTitleW) {
+      brandSize = sz; brandF = f; brandGap = gap;
+      titleW1 = w1; titleW2 = w2; titleW = w1 + gap + w2;
+      break;
+    }
+  }
+  if (!brandF) {
+    brandF = pf('bold', brandSize);
+    brandGap = IS(20 * brandSize / 82);
+    titleW1 = imgTextW(ctx, brandWord, brandF);
+    titleW2 = imgTextW(ctx, brandRest, brandF);
+    titleW = titleW1 + brandGap + titleW2;
+  }
   const taglineW = imgTextW(ctx, taglineTxt, taglineF);
 
-  const blockH = IS(96) + IS(24);
+  const titleLineH = IS(96 * brandSize / 82);
+  const blockH = titleLineH + IS(24);
   const by_ = headerY0 + (IMG_HEADER_H - blockH) / 2 - IS(6);
   const bx = cx - titleW / 2;
 
   imgDrawTextAt(ctx, bx, by_, brandWord, brandF, IMG_RED);
   imgDrawTextAt(ctx, bx + titleW1 + brandGap, by_, brandRest, brandF, IMG_WHITE);
-  imgDrawTextAt(ctx, cx - taglineW / 2, by_ + IS(96), taglineTxt, taglineF, IMG_MUTED_GREY);
+  imgDrawTextAt(ctx, cx - taglineW / 2, by_ + titleLineH, taglineTxt, taglineF, IMG_MUTED_GREY);
 
   y += IMG_HEADER_H;
 
@@ -2449,7 +2487,7 @@ function renderPreListCanvas(names, station, planDate){
   ctx.fillRect(0, 0, finalW, finalH);
 
   let y = IMG_MARGIN;
-  y = imgDrawTopChrome(ctx, x0, x1, y, station, 'CONFIRMATION', IMG_PRELIST_TAGLINE, IMG_PRELIST_WARNING, station, planDate);
+  y = imgDrawTopChrome(ctx, x0, x1, y, station, 'SAMEDAY ATTENDANCE', IMG_PRELIST_TAGLINE, IMG_PRELIST_WARNING, station, planDate);
 
   const tableFrameTop = y;
 
