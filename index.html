@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Deployment Plan Generator</title>
+<title>Wave Plan Generator</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Poppins:wght@400;500;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 @font-face {
   font-family: "CharlesWrightBold";
@@ -14,9 +15,9 @@
   font-style: normal;
 }
   :root{
-    --bg:#12151a; --surface:#1b1f26; --surface-2:#242a33; --border:#2c313b;
-    --text:#eef1f4; --muted:#98a2b3; --red:#cc0000; --red-bright:#e23c3c;
-    --red-dim:rgba(204,0,0,.16); --green:#34a35a;
+    --bg:#131313; --surface:#1b1b1b; --surface-2:#242424; --border:#363636;
+    --text:#f2f2f2; --muted:#9c9c9c; --red:#cc0000; --red-bright:#e23c3c;
+    --red-dim:rgba(204,0,0,.18); --green:#34a35a;
     --amber-bg:#3a2e12; --amber-fg:#f2c14e; --blue-bg:#132234; --blue-fg:#6fa8dc;
   }
   *{box-sizing:border-box;}
@@ -37,7 +38,7 @@
   .brand{text-align:center;}
   .brand .eyebrow{font-size:12px; color:var(--muted); margin-bottom:2px;}
   .brand .station{font-size:20px; font-weight:600;}
-  .brand .tagline{font-size:12px; color:var(--muted); margin-bottom:4px;}
+  .brand .tagline{font-size:12px; color:var(--muted); margin-top:1px;}
   .wave-modal{display:none; position:fixed; inset:0; background:rgba(6,7,9,.78); z-index:1100; align-items:flex-start; justify-content:center; padding:60px 24px; overflow:auto;}
   .wave-modal.open{display:flex;}
   .wave-modal-panel{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:28px; max-width:640px; width:100%; box-sizing:border-box;}
@@ -72,6 +73,18 @@
     border-radius:8px; font-family:'IBM Plex Mono',monospace; font-size:11.5px; resize:vertical;
     background:var(--surface-2); color:var(--text); line-height:1.5;
   }
+  /* Dark scrollbars everywhere (textareas, the review table, the wave-
+     schedule modal) instead of the browser's default light ones, which
+     stood out badly against this theme. Tied to the theme variables
+     (border/surface-2) so they follow whichever color style is active
+     rather than a hardcoded color from an earlier theme. Firefox uses
+     scrollbar-color; Chrome/Edge/Safari use ::-webkit-scrollbar below. */
+  *{ scrollbar-width:thin; scrollbar-color:var(--border) var(--surface); }
+  *::-webkit-scrollbar{ width:15px; height:15px; }
+  *::-webkit-scrollbar-track{ background:var(--surface); }
+  *::-webkit-scrollbar-thumb{ background:var(--border); border-radius:6px; border:2px solid var(--surface); }
+  *::-webkit-scrollbar-thumb:hover{ background:var(--muted); }
+  *::-webkit-scrollbar-corner{ background:var(--surface); }
   .dropzone{
     border:1.5px dashed var(--border); border-radius:7px; padding:26px; display:flex;
     align-items:center; gap:16px; position:relative; background:var(--surface-2); flex:1;
@@ -104,10 +117,22 @@
   .btn-primary:hover{background:var(--red-bright);}
   .btn-primary:disabled{background:var(--surface-2); color:var(--muted); cursor:not-allowed; opacity:0.7;}
   .btn-primary:disabled:hover{background:var(--surface-2);}
+  /* Confirms which report accent colour is currently selected — only the
+     three buttons whose download is actually coloured by it (Wave Blueprint
+     stays the site's default red since its .xlsx has no colour in it). JS
+     sets --accent-btn/--accent-btn-hover on these three elements; until it
+     does, they fall back to the site's normal button colours. */
+  #downloadWavePlanBtn, #downloadAtlasCollectionsBtn, #downloadConfirmListInlineBtn{
+    background:var(--accent-btn, var(--red));
+  }
+  #downloadWavePlanBtn:hover, #downloadAtlasCollectionsBtn:hover, #downloadConfirmListInlineBtn:hover{
+    background:var(--accent-btn-hover, var(--red-bright));
+  }
   .btn-generate{width:100%;}
   .btn-ghost{
     background:transparent; color:var(--muted); border:1px solid var(--border); padding:9px 16px;
     border-radius:8px; font-size:12.5px; margin-top:10px;
+    display:inline-flex; align-items:center; justify-content:center; line-height:1;
   }
   .btn-ghost:hover{color:var(--text); border-color:var(--muted);}
   .secondary{background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:10px 16px; border-radius:8px; font-size:13px;}
@@ -135,14 +160,25 @@
   }
   .step-dot .num{display:flex; align-items:center; justify-content:center; width:100%; height:100%; line-height:1;}
   .step-dot .check{display:none; align-items:center; justify-content:center;}
-  .step-item.done .step-dot{background:var(--green); border-color:var(--green);}
+  .step-item.done .step-dot{background:var(--red); border-color:var(--red);}
   .step-item.done .step-dot .num{display:none;}
   .step-item.done .step-dot .check{display:block;}
   .step-label{font-size:13px; color:var(--muted);}
   .step-item.done .step-label{color:var(--text); font-weight:500;}
   .step-line{width:52px; height:2px; background:var(--border); margin:0 14px;}
-  .step-item.done + .step-line{background:var(--green);}
+  .step-item.done + .step-line{background:var(--red);}
+  /* Every step stays red as it's completed individually; once ALL of them
+     are done, the whole stepper (dots + connecting lines) switches to
+     green as a single "all complete" signal. */
+  .stepper.all-done .step-item.done .step-dot{background:var(--green); border-color:var(--green);}
+  .stepper.all-done .step-item.done + .step-line{background:var(--green);}
   @media (max-width:820px){ .step-line{width:28px; margin:0 8px;} .step-label{display:none;} }
+  @media (max-width:480px){
+    .shell{padding:20px 14px 44px;}
+    .stepper{padding:12px 0;}
+    .step-dot{width:18px; height:18px; flex:0 0 18px; font-size:9px;}
+    .step-line{width:14px; margin:0 4px;}
+  }
 
   .empty-state{display:flex; flex-direction:column; align-items:center; text-align:center; gap:12px; padding:20px 6px; color:var(--muted);}
   .empty-state .ic{width:44px; height:44px; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center;}
@@ -195,6 +231,12 @@
   .export-item .upload-progress{height:48px; border-radius:7px; margin-top:0;}
   .export-item .upload-progress-label{font-size:13px;}
   .export-text-btn{width:100%; padding:9px 16px; font-size:12.5px;}
+  .accent-picker{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:18px;}
+  .accent-picker .hint{margin-bottom:0; flex:1 1 320px;}
+  .accent-swatch-row{display:flex; gap:10px; margin-left:auto; flex-shrink:0;}
+  .accent-swatch{width:30px; height:30px; border-radius:50%; border:2px solid transparent; box-shadow:0 0 0 1px var(--border); cursor:pointer; padding:0; transition:transform .1s, box-shadow .15s;}
+  .accent-swatch:hover{transform:scale(1.08);}
+  .accent-swatch.selected{border-color:var(--text); box-shadow:0 0 0 2px var(--surface), 0 0 0 4px currentColor;}
   table.review-table{border-collapse:collapse; width:100%; font-size:12.5px; font-family:'IBM Plex Mono',monospace;}
   table.review-table th, table.review-table td{border:1px solid var(--border); padding:9px 10px; text-align:center; white-space:nowrap;}
   table.review-table th{background:var(--surface-2); color:var(--muted); font-weight:500; position:sticky; top:0; z-index:1;}
@@ -203,7 +245,7 @@
   table.review-table tr:nth-child(even) td{background:var(--surface-2);}
   table.review-table tr.row-error td{background:rgba(204,0,0,.16); color:#f8b4b4;}
   .review-errors{border:1px solid #5c2222; background:#241111; border-radius:7px; padding:16px 18px; margin-bottom:18px;}
-  .review-errors h3{margin:0 0 10px; font-size:13.5px; color:#f28b82; font-weight:600;}
+  .review-errors h3{margin:0 0 10px; font-size:13.5px; color:#f28b82; font-weight:600; text-transform:uppercase;}
   .review-errors ul{margin:0; padding-left:18px; font-size:12.5px; color:#f2b8b8; line-height:1.7;}
   .review-errors ul + h3{margin-top:14px;}
 </style>
@@ -216,13 +258,11 @@
     <div class="topbar">
       <div></div>
       <div class="brand">
+        <div class="station" id="stationDisplay">WAVE PLAN GENERATOR</div>
         <div class="tagline">EVERYTHING THAT'S NEEDED ALL IN ONE PLACE</div>
-        <div class="station" id="stationDisplay">DEPLOYMENT PLAN GENERATOR</div>
       </div>
 
-      <div style="display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; justify-self:end;">
-        <button type="button" class="btn-ghost" id="openWaveScheduleBtn">Wave schedule</button>
-      </div>
+      <div></div>
     </div>
 
     <div class="stepper" id="topStepper">
@@ -275,8 +315,8 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
             </div>
             <div>
-              <div class="dz-text">Drop the roster file here, or click to browse</div>
-              <div class="dz-hint mono">.csv or .xlsx</div>
+              <div class="dz-text">DROP TODAY'S VAN ROSTER HERE</div>
+              <div class="dz-hint mono">.XLSX</div>
             </div>
           </div>
           <div class="upload-progress" id="rosterProgress">
@@ -284,8 +324,8 @@
             <span class="upload-progress-label" id="rosterProgressLabel">0%</span>
           </div>
           <div style="display:none; flex-direction:column; gap:8px; margin-top:12px;" id="confirmListActions">
-            <button type="button" class="btn-primary export-btn" id="downloadConfirmListInlineBtn">DOWNLOAD CONFIRMATION LIST</button>
-            <button type="button" class="btn-ghost export-text-btn" id="copyConfirmListTextBtn">TEXT</button>
+            <button type="button" class="btn-primary export-btn" id="downloadConfirmListInlineBtn">SAME DAY ATTENDANCE</button>
+            <button type="button" class="btn-ghost export-text-btn" id="copyConfirmListTextBtn">COPY MESSAGE</button>
           </div>
         </div>
 
@@ -300,8 +340,8 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
             </div>
             <div>
-              <div class="dz-text">Drop the Routes / Itineraries file here, or click to browse</div>
-              <div class="dz-hint mono">.xlsx</div>
+              <div class="dz-text">DROP TODAY'S ROUTES EXPORTS HERE</div>
+              <div class="dz-hint mono">.XLSX</div>
             </div>
           </div>
           <div class="upload-progress" id="routesProgress">
@@ -318,11 +358,11 @@
           <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
             <div style="flex:1; display:flex; flex-direction:column;">
               <label for="stationCode" class="sr-only">Station code</label>
-              <input type="text" id="stationCode" placeholder="Station code" value="" style="flex:1; height:auto;">
+              <input type="text" id="stationCode" placeholder="STATION CODE" value="" autocomplete="off" style="flex:1; height:auto;">
             </div>
             <div style="flex:1; display:flex; flex-direction:column;">
               <label for="planDate" class="sr-only">Date</label>
-              <input type="text" id="planDate" placeholder="DD/MM/YY" style="flex:1; height:auto;">
+              <input type="text" id="planDate" placeholder="DD/MM/YY" autocomplete="off" style="flex:1; height:auto;">
             </div>
           </div>
           <div class="upload-progress" id="detailsProgress">
@@ -338,7 +378,7 @@
             <label for="wpText" style="display:block; font-size:14.5px; font-weight:600; color:var(--text); margin:0;">WAVE PLAN</label>
             <span class="pill" id="wpTextPill">EMPTY</span>
           </div>
-          <textarea id="wpText" placeholder="DSP | Route Code | Service Type | Time | Staging Location | Wave" style="min-height:140px;"></textarea>
+          <textarea id="wpText" placeholder="DSP | ROUTE CODE | SERVICE TYPE | TIME | STAGING LOCATION | WAVE" style="min-height:140px;"></textarea>
           <div class="upload-progress" id="wpProgress">
             <div class="upload-progress-fill" id="wpProgressFill"></div>
             <span class="upload-progress-label" id="wpProgressLabel">0%</span>
@@ -375,7 +415,6 @@
       </div>
 
       <button id="goBtn" class="btn-primary btn-generate">GENERATE</button>
-      <div id="status" class="status"></div>
 
       <div id="conflictCard" class="conflict-card">
         <h2>Conflicts need resolving</h2>
@@ -409,7 +448,7 @@
 <div id="transitionScreen" class="transition-screen">
   <div class="transition-content">
     <div class="transition-ring"></div>
-    <div class="transition-title">DEPLOYMENT PLAN GENERATING</div>
+    <div class="transition-title">WAVE PLAN GENERATING</div>
     <div class="transition-bar-track"><div class="transition-bar-fill" id="transitionFill"></div></div>
   </div>
 </div>
@@ -420,10 +459,10 @@
       <div class="topbar">
         <div></div>
         <div class="brand">
+          <div class="station" id="resultsStationHeader">WAVE PLAN GENERATOR</div>
           <div class="tagline">EVERYTHING THAT'S NEEDED ALL IN ONE PLACE</div>
-          <div class="station">DEPLOYMENT PLAN GENERATOR</div>
         </div>
-        <button type="button" class="btn-ghost" id="closeReviewBtn" style="justify-self:end;">← Back to inputs</button>
+        <button type="button" class="btn-ghost" id="closeReviewBtn" style="justify-self:end;">← BACK TO INPUTS</button>
       </div>
 
       <div class="stats-bar" id="statsBar">
@@ -439,8 +478,6 @@
       </div>
     </div>
 
-    <div class="hint mono" id="reviewMeta" style="margin-bottom:16px;"></div>
-
     <div id="resultsSummaryText"></div>
     <div id="successBanner" class="success-banner" style="display:none;">✓ ALL ROUTES MATCHED — NO ERRORS DETECTED</div>
     <div id="reviewErrors"></div>
@@ -453,40 +490,47 @@
         <tbody id="reviewTableBody"></tbody>
       </table>
     </div>
-    <div class="hint" style="margin-top:10px;">Click any cell to edit it directly, then Apply changes to update the outputs below. Drag the table's bottom-right corner to resize it.</div>
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:10px; gap:24px;">
+      <div class="hint mono" id="reviewMeta" style="margin-bottom:0;"></div>
+      <div class="hint" style="text-align:right; margin-bottom:0;">Click any cell to edit it directly, then Apply changes to update the outputs below. Drag the table's bottom right corner to resize it.</div>
+    </div>
     <div class="actions" style="justify-content:flex-end;">
-      <button type="button" class="btn-primary" id="applyReviewBtn">Apply changes</button>
+      <button type="button" class="btn-ghost" id="openWaveScheduleBtn" style="margin-top:0;">WAVE SCHEDULE</button>
+      <button type="button" class="btn-primary" id="applyReviewBtn">APPLY CHANGES</button>
     </div>
 
     <div class="panel" style="margin-top:24px;">
       <h2 style="margin-bottom:4px;">EXPORT OPTIONS</h2>
-      <div class="hint" style="margin-bottom:18px;">Each output renders and downloads (or copies) on click — nothing is pre-built until you press it.</div>
-      <div id="exportStatus" class="status"></div>
+
+      <div class="accent-picker">
+        <div class="hint">Each output renders and downloads (or copies) on click, nothing is pre-built until you press it. The report accent colour applies to the PNGs below (and the Sameday Attendance list) once picked:</div>
+        <div class="accent-swatch-row" id="accentSwatchRow"></div>
+      </div>
 
       <div class="export-grid">
         <div class="export-item">
-          <button type="button" class="btn-primary export-btn" id="downloadDeploymentPlanBtn">DEPLOYMENT PLAN (PNG)</button>
-          <div class="upload-progress" id="deploymentPlanProgress">
-            <div class="upload-progress-fill" id="deploymentPlanProgressFill"></div>
-            <span class="upload-progress-label" id="deploymentPlanProgressLabel">0%</span>
+          <button type="button" class="btn-primary export-btn" id="downloadWavePlanBtn">WAVE PLAN</button>
+          <div class="upload-progress" id="wavePlanProgress">
+            <div class="upload-progress-fill" id="wavePlanProgressFill"></div>
+            <span class="upload-progress-label" id="wavePlanProgressLabel">0%</span>
           </div>
-          <button type="button" class="btn-ghost export-text-btn" id="copyDeploymentPlanTextBtn">TEXT</button>
+          <button type="button" class="btn-ghost export-text-btn" id="copyWavePlanTextBtn">COPY MESSAGE</button>
         </div>
         <div class="export-item">
-          <button type="button" class="btn-primary export-btn" id="downloadAtlasCollectionsBtn">ATLAS &amp; COLLECTIONS (PNG)</button>
+          <button type="button" class="btn-primary export-btn" id="downloadAtlasCollectionsBtn">ATLAS &amp; COLLECTIONS</button>
           <div class="upload-progress" id="atlasCollectionsProgress">
             <div class="upload-progress-fill" id="atlasCollectionsProgressFill"></div>
             <span class="upload-progress-label" id="atlasCollectionsProgressLabel">0%</span>
           </div>
-          <button type="button" class="btn-ghost export-text-btn" id="copyAtlasCollectionsTextBtn">TEXT</button>
+          <button type="button" class="btn-ghost export-text-btn" id="copyAtlasCollectionsTextBtn">COPY MESSAGE</button>
         </div>
         <div class="export-item">
-          <button type="button" class="btn-primary export-btn" id="downloadDeploymentBlueprintBtn">DEPLOYMENT BLUEPRINT (XLSX)</button>
-          <div class="upload-progress" id="deploymentBlueprintProgress">
-            <div class="upload-progress-fill" id="deploymentBlueprintProgressFill"></div>
-            <span class="upload-progress-label" id="deploymentBlueprintProgressLabel">0%</span>
+          <button type="button" class="btn-primary export-btn" id="downloadWaveBlueprintBtn">WAVE BLUEPRINT</button>
+          <div class="upload-progress" id="waveBlueprintProgress">
+            <div class="upload-progress-fill" id="waveBlueprintProgressFill"></div>
+            <span class="upload-progress-label" id="waveBlueprintProgressLabel">0%</span>
           </div>
-          <button type="button" class="btn-ghost export-text-btn" id="copyDeploymentBlueprintTextBtn">TEXT</button>
+          <button type="button" class="btn-ghost export-text-btn" id="copyWaveBlueprintTextBtn">COPY MESSAGE</button>
         </div>
       </div>
     </div>
@@ -611,11 +655,7 @@ document.getElementById('closeWaveScheduleBtn').onclick = () => {
 };
 
 function log(){} // logging UI removed — kept as a no-op so existing call sites stay harmless
-function setStatus(kind, msg){
-  const el = document.getElementById('status');
-  el.className = 'status ' + kind;
-  el.textContent = msg;
-}
+function setStatus(){} // status message strip removed from the landing page — kept as a no-op so existing call sites (errors, conflicts, auto-fill notices) stay harmless rather than throwing
 
 /* ---------- status panel (right column) ---------- */
 // Runs a purely cosmetic upload progress bar over a fixed duration,
@@ -664,13 +704,19 @@ function updateStepper(){
   const hcDone = !!document.getElementById('hcText').value.trim();
   const st = document.getElementById('stationCode').value.trim();
   const dt = document.getElementById('planDate').value.trim();
-  const detailsDone = !!(st && dt);
+  const hasRoutesForDetails = !!document.getElementById('routesFile').files[0];
+  const detailsDone = !!(st && dt && hasRoutesForDetails);
   document.getElementById('stepRoster').classList.toggle('done', rosterDone);
   document.getElementById('stepRoutes').classList.toggle('done', routesDone);
   document.getElementById('stepWaveStaging').classList.toggle('done', wpDone);
   document.getElementById('stepHighValue').classList.toggle('done', hvDone);
   document.getElementById('stepHomeCollections').classList.toggle('done', hcDone);
   document.getElementById('stepDetails').classList.toggle('done', detailsDone);
+  // Each step stays red as it completes on its own; only once every single
+  // one is done does the whole stepper flip to green as one "all complete"
+  // signal, rather than turning green step-by-step.
+  const allDone = rosterDone && routesDone && wpDone && hvDone && hcDone && detailsDone;
+  document.getElementById('topStepper').classList.toggle('all-done', allDone);
 }
 function validatePasteBox(textareaId, validationId, kind){
   const text = document.getElementById(textareaId).value.trim();
@@ -718,7 +764,12 @@ function refreshTextStatus(){
 // but the pill count itself is now also held back until the bar completes,
 // same as the confirm-list button, rather than appearing the instant the
 // paste lands underneath.
+// After a paste, the browser leaves the box scrolled down to the cursor
+// (the end of the pasted text) — jump it back to the top on the very next
+// tick (paste hasn't inserted the text yet at 'paste' time itself) so the
+// box always shows the start of what was just pasted, not its tail end.
 document.getElementById('wpText').addEventListener('paste', () => {
+  setTimeout(() => { document.getElementById('wpText').scrollTop = 0; }, 0);
   runUploadProgress('wpProgress', 'wpProgressFill', 'wpProgressLabel', 'MAPPING', 'MAPPED', 1500, () => {
     const wp = document.getElementById('wpText').value.trim();
     const wpCount = wp ? Object.keys(parseStagingText(wp).staging).length : 0;
@@ -726,6 +777,7 @@ document.getElementById('wpText').addEventListener('paste', () => {
   });
 });
 document.getElementById('hvText').addEventListener('paste', () => {
+  setTimeout(() => { document.getElementById('hvText').scrollTop = 0; }, 0);
   runUploadProgress('hvProgress', 'hvProgressFill', 'hvProgressLabel', 'FETCHING', 'FETCHED', 1500, () => {
     const hv = document.getElementById('hvText').value.trim();
     const hvCount = hv ? Object.keys(parseAtlasText(hv)).length : 0;
@@ -733,6 +785,7 @@ document.getElementById('hvText').addEventListener('paste', () => {
   });
 });
 document.getElementById('hcText').addEventListener('paste', () => {
+  setTimeout(() => { document.getElementById('hcText').scrollTop = 0; }, 0);
   runUploadProgress('hcProgress', 'hcProgressFill', 'hcProgressLabel', 'ALLOCATING LABELS', 'LABELS ALLOCATED', 1500, () => {
     const hc = document.getElementById('hcText').value.trim();
     const hcCount = hc ? Object.keys(parseHomeCollectionsText(hc)).length : 0;
@@ -743,8 +796,16 @@ document.getElementById('hcText').addEventListener('paste', () => {
 function refreshDetailsStatus(){
   const st = document.getElementById('stationCode').value.trim();
   const dt = document.getElementById('planDate').value.trim();
-  const done = !!(st && dt);
-  setPill('detailsPill', done, done ? 'CONFIRMED' : 'EMPTY');
+  // Station/date can get auto-filled from the roster filename alone (the
+  // confirmation-list-only flow, before Routes even exists), but this
+  // panel shouldn't read as CONFIRMED off the back of that — it should
+  // only go green once Routes has actually been uploaded too, same as
+  // the rest of the full-pipeline steps.
+  const hasRoutes = !!document.getElementById('routesFile').files[0];
+  const filled = !!(st && dt);
+  const done = filled && hasRoutes;
+  const label = done ? 'CONFIRMED' : (filled ? 'AWAITING ROUTES' : 'EMPTY');
+  setPill('detailsPill', done, label);
   updateStepper();
 }
 ['stationCode','planDate'].forEach(id => document.getElementById(id).addEventListener('input', refreshDetailsStatus));
@@ -769,15 +830,15 @@ function updateConfirmListButtonVisibility(){
 }
 document.getElementById('downloadConfirmListInlineBtn').onclick = async () => {
   if(!lastRoster) return;
+  IMG_RED = selectedAccentHex;
   const station = document.getElementById('stationCode').value.trim() || 'STATION';
   const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
   try{
     await ensureImageFontsReady();
     const names = buildPreListNames(lastRoster);
     const canvas = renderPreListCanvas(names, station, planDate);
-    canvas.toBlob(blob => {
-      triggerDownload(blob, `${station}_PRELIST_${dateForFilename(planDate)}.png`);
-    });
+    const blob = await canvasToBlob(canvas);
+    triggerDownload(blob, `${station}_PRELIST_${dateForFilename(planDate)}.png`);
   }catch(err){
     console.error(err);
     setExportStatus('error', 'Could not render the PNG — see the browser console for details.');
@@ -822,27 +883,35 @@ document.getElementById('rosterFile').addEventListener('change', async (e) => {
   // matches a station-code-shaped token — 2-4 letters immediately
   // followed by 1-2 digits (DLS4, DXS1, DXG2, HSA7) — anywhere in the
   // name, so it doesn't matter where in the filename it sits.
-  if(!parseError){
-    const stationMatch = file.name.match(/(?:^|[_\-.\s])([A-Za-z]{2,4}\d{1,2})(?:[_\-.\s]|$)/i);
-    if(stationMatch){
-      document.getElementById('stationCode').value = stationMatch[1].toUpperCase();
-    }
-    const dateMatch = file.name.match(/(\d{4})-(\d{2})-(\d{2})/);
-    if(dateMatch){
-      const [, y, mo, d] = dateMatch;
-      document.getElementById('planDate').value = `${d}/${mo}/${y.slice(2)}`;
-    }
-    if(stationMatch || dateMatch) refreshDetailsStatus();
-  }
   // Pill and the confirm-list button both stay hidden/EMPTY until the bar
   // itself actually reaches 100% — not the instant the file finishes
-  // parsing underneath, same idea as the paste boxes above.
+  // parsing underneath, same idea as the paste boxes above. The station
+  // code / date auto-fill (read from the roster filename) waits for the
+  // same 100% mark — they must stay blank until then, not appear the
+  // instant the file is chosen.
   runUploadProgress('rosterProgress', 'rosterProgressFill', 'rosterProgressLabel', 'UPLOADING', 'UPLOADED', 1500, () => {
     if(parseError){
       setPill('rosterPill', false, 'ERROR');
     }else{
       setPill('rosterPill', true, `${roster.length} DRIVERS`);
     }
+    if(!parseError){
+      const stationMatch = file.name.match(/(?:^|[_\-.\s])([A-Za-z]{2,4}\d{1,2})(?:[_\-.\s]|$)/i);
+      if(stationMatch){
+        document.getElementById('stationCode').value = stationMatch[1].toUpperCase();
+      }
+      const dateMatch = file.name.match(/(\d{4})-(\d{2})-(\d{2})/);
+      if(dateMatch){
+        const [, y, mo, d] = dateMatch;
+        document.getElementById('planDate').value = `${d}/${mo}/${y.slice(2)}`;
+      }
+      if(stationMatch || dateMatch) refreshDetailsStatus();
+    }
+    // The stepper reads the pill's own 'done' class, which only gets set
+    // here — the earlier updateStepper() call above ran before the bar
+    // had finished, so without this the VANS step never lit up even
+    // though the pill itself showed done.
+    updateStepper();
     // Deliberately not re-syncing heights here: if the confirm-list button
     // shows up (no Routes file yet), Vans is *meant* to grow taller than
     // Routes/Station & Date without dragging them along — re-syncing now
@@ -1309,6 +1378,9 @@ document.getElementById('closeReviewBtn').onclick = closeReviewModal;
 function populateResultsPage(built, station, planDate){
   const issues = computeIssues(built);
   document.getElementById('reviewMeta').textContent = `${station} · ${planDate}`;
+  const ddmmMatch = String(planDate).match(/^(\d{1,2}\/\d{1,2})/);
+  const ddmm = ddmmMatch ? ddmmMatch[1] : planDate;
+  document.getElementById('resultsStationHeader').textContent = `${station} WAVE PLAN ${ddmm}`;
 
   const vanCount = new Set(built.filter(r=>r.van!=null && r.van!=='').map(r=>r.van)).size;
   const atlasTotal = built.reduce((s,r)=>s+(r.high_value||0),0);
@@ -1376,14 +1448,16 @@ function copyToClipboard(text, btn){
 // Text companions for each output. The blueprint and atlas/collections
 // captions are a first draft — adjust the wording once there's a real
 // sense of what your team actually wants to paste alongside each.
-function deploymentBlueprintCaptionText(){
-  return `${lastStation} deployment blueprint for ${lastPlanDate} — internal backup, not for drivers.`;
+function waveBlueprintCaptionText(){
+  return `*${lastStation} Wave Blueprint for ${lastPlanDate}*\nInternal backup, not for drivers.`;
 }
 function atlasCollectionsCaptionText(){
   const dm = (lastPlanDate.match(/\d{1,2}\/\d{1,2}/) || [lastPlanDate])[0];
-  return `*${lastStation} ATLAS & COLLECTIONS (${dm})* Routes carrying a High Value parcel and/or a Home Collection today 👍🏼`;
+  const atlasTotal = (lastBuilt || []).reduce((s,r)=>s+(r.high_value||0),0);
+  const collTotal = (lastBuilt || []).reduce((s,r)=>s+(r.collection||0),0);
+  return `*${lastStation} ATLAS & COLLECTIONS (${dm})*\n\nAtlas Shipments: ${atlasTotal}\nHome Collections: ${collTotal}`;
 }
-function deploymentPlanCaptionText(){
+function wavePlanCaptionText(){
   return buildWhatsAppMessage(lastStation, lastPlanDate);
 }
 
@@ -1402,13 +1476,94 @@ function deploymentPlanCaptionText(){
    spacing and drawing order are all ported as-is.
    ============================================================ */
 
-const IMG_SCALE = 3;
+const IMG_SCALE = 4;
 function IS(n){ return Math.round(n * IMG_SCALE); }
 
-const IMG_BLACK = '#0d0d0d';
+const IMG_BLACK = '#0d1a12';
 const IMG_WHITE = '#ffffff';
-const IMG_RED = '#cc0000';
+// Mutable (not const): the accent picker on the export page reassigns this
+// right before each PNG render, so every drawing helper below that reads
+// IMG_RED picks up whichever swatch was last selected. Default is red —
+// every report (including the Sameday Attendance list, which can be
+// downloaded before the picker on the export page is ever seen) renders
+// red until a driver actually picks a different swatch.
+let IMG_RED = '#cc0000';
 const IMG_MUTED_GREY = '#7a7a7a';
+
+// ---------- accent colour picker (export page) ----------
+// Five preset accents a user can pick from the export page. Selecting one
+// sets `selectedAccentHex`, which each PNG-download handler copies into
+// IMG_RED immediately before rendering that report's canvas. Red is the
+// default (matches IMG_RED above) so nothing needs picking for the normal
+// case, including the Sameday Attendance list generated before this
+// picker is reached.
+const ACCENT_PRESETS = [
+  { name: 'Red', hex: '#cc0000' },
+  { name: 'Forest Green', hex: '#15803d' },
+  { name: 'Blue', hex: '#1d4ed8' },
+  { name: 'Purple', hex: '#7c3aed' },
+  { name: 'Amber', hex: '#b45309' },
+];
+let selectedAccentHex = IMG_RED;
+
+function imgHexToRgb(hex){
+  hex = hex.replace('#', '');
+  if(hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  const num = parseInt(hex, 16);
+  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+}
+// Blends a hex colour toward white — used for the pale pill/chip
+// backgrounds so they stay a light tint of whichever accent is selected,
+// instead of a fixed colour that would clash once the accent changes.
+function imgLightTint(hex, amount = 0.88){
+  const { r, g, b } = imgHexToRgb(hex);
+  const mix = (c) => Math.round(c + (255 - c) * amount);
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+}
+
+// The three buttons whose downloaded PNG is actually coloured by the
+// accent — Wave Blueprint is left alone since it downloads a plain .xlsx
+// with no colour in it. Recolouring these on selection is just a live
+// confirmation of which accent is currently active; it doesn't touch any
+// other button on the site.
+const ACCENT_BUTTON_IDS = ['downloadWavePlanBtn', 'downloadAtlasCollectionsBtn', 'downloadConfirmListInlineBtn'];
+function accentButtonHoverShade(hex){
+  const { r, g, b } = imgHexToRgb(hex);
+  const mix = (c) => Math.round(c + (255 - c) * 0.18);
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+}
+function applyAccentToButtons(hex){
+  ACCENT_BUTTON_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.style.setProperty('--accent-btn', hex);
+    el.style.setProperty('--accent-btn-hover', accentButtonHoverShade(hex));
+  });
+}
+
+function initAccentPicker(){
+  const row = document.getElementById('accentSwatchRow');
+  applyAccentToButtons(selectedAccentHex);
+  if(!row) return;
+  ACCENT_PRESETS.forEach(preset => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'accent-swatch';
+    btn.title = preset.name;
+    btn.style.background = preset.hex;
+    btn.style.color = preset.hex;
+    if(preset.hex.toLowerCase() === selectedAccentHex.toLowerCase()) btn.classList.add('selected');
+    btn.onclick = () => {
+      selectedAccentHex = preset.hex;
+      row.querySelectorAll('.accent-swatch').forEach(el => el.classList.remove('selected'));
+      btn.classList.add('selected');
+      applyAccentToButtons(selectedAccentHex);
+    };
+    row.appendChild(btn);
+  });
+}
+document.addEventListener('DOMContentLoaded', initAccentPicker);
+if(document.readyState !== 'loading') initAccentPicker();
 
 const IMG_MARGIN = IS(40);
 const IMG_STRIPE_H = IS(14);
@@ -1526,7 +1681,7 @@ function imgDrawTopChrome(ctx, x0, x1, y, brandWord, brandRest, taglineTxt, summ
   const taglineF = pf('medium', 18.4);
 
   // Station code (e.g. "DLS4") in red, a visible gap, then the title in
-  // white — "DLS4 DEPLOYMENT PLAN" / "DLS4 MANUAL PICKUP" / "DLS4 SAMEDAY
+  // white — "DLS4 WAVE PLAN" / "DLS4 MANUAL PICKUP" / "DLS4 SAMEDAY
   // ATTENDANCE", centered. Auto-shrinks from 82pt so a longer title (the
   // confirmation list's narrower card) never overflows or gets clipped —
   // the two wider reports' titles already fit at 82pt, so this never
@@ -2057,6 +2212,106 @@ function imgDrawTrainingNotice(ctx, x0, y, nameColW, pairs, totalW){
 }
 
 // ============================================================
+// "Ticket Stripe" chrome — replaces the old centred black-banner /
+// hazard-stripe chrome for all three PNG reports (Wave Plan, Atlas &
+// Collections / Manual Pickup, and the Confirmation List). A full-height
+// accent stripe down the left edge, a left-aligned title block with the
+// safety warning folded into a small pill, an optional row of summary
+// stat chips, and a slim left-aligned footer with a thin accent rule
+// instead of a full-width colour band.
+// ============================================================
+const IMG_TICKET_STRIPE_W = IS(22);
+const IMG_TICKET_TITLE_H = IS(150);
+const IMG_TICKET_STAT_ROW_H = IS(70);
+const IMG_TICKET_GAP = IS(28);
+const IMG_TICKET_FOOTER_H = IS(60);
+// Wave Plan PNG only: once the route list is longer than this, it's split
+// into several full-size images (one per page) instead of one very tall
+// image — each page carries its own "N/M" badge in the header.
+const IMG_WAVE_PAGE_LIMIT = 30;
+
+function imgTicketHeaderHeight(hasStats){
+  return IMG_TICKET_TITLE_H + (hasStats ? IMG_TICKET_STAT_ROW_H : 0) + IMG_TICKET_GAP;
+}
+
+function imgDrawTicketStripe(ctx, finalH){
+  ctx.fillStyle = IMG_RED;
+  ctx.fillRect(0, 0, IMG_TICKET_STRIPE_W, finalH);
+}
+
+function imgDrawTicketHeader(ctx, x0, x1, y, stationCode, titleRest, taglineTxt, warningTxt, dateSuffix, stats, pageLabel){
+  const titleF = pf('bold', 46);
+  const stationW = imgTextW(ctx, stationCode, titleF);
+  imgDrawTextAt(ctx, x0, y, stationCode, titleF, IMG_RED);
+  imgDrawTextAt(ctx, x0 + stationW + IS(14), y, titleRest, titleF, IMG_TEXT_DARK);
+
+  const dateF = pf('bold', 14);
+  const dateW = imgTextW(ctx, dateSuffix, dateF);
+  const datePillW = dateW + IS(28), datePillH = IS(34);
+  imgRoundRect(ctx, x1 - datePillW, y + IS(4), x1, y + IS(4) + datePillH, IS(7));
+  ctx.fillStyle = IMG_BLACK; ctx.fill();
+  imgDrawCellText(ctx, x1 - datePillW / 2, y + IS(4), datePillH, dateSuffix, dateF, IMG_WHITE);
+
+  // Multi-image Wave Plan only: a small "N/M" page badge under the date
+  // pill, right-aligned to match it.
+  if(pageLabel){
+    const pageF = pf('bold', 13);
+    const pageW = imgTextW(ctx, pageLabel, pageF);
+    const pagePillW = pageW + IS(20), pagePillH = IS(26);
+    const pageY = y + IS(4) + datePillH + IS(8);
+    imgRoundRect(ctx, x1 - pagePillW, pageY, x1, pageY + pagePillH, IS(7));
+    ctx.fillStyle = IMG_RED; ctx.fill();
+    imgDrawCellText(ctx, x1 - pagePillW / 2, pageY, pagePillH, pageLabel, pageF, IMG_WHITE);
+  }
+
+  y += IS(58);
+  const taglineF = pf('medium', 16);
+  imgDrawTextAt(ctx, x0, y, taglineTxt, taglineF, IMG_MUTED_GREY);
+
+  y += IS(38);
+  const warnF = pf('semibold', 14);
+  const warnW = imgTextW(ctx, warningTxt, warnF);
+  const warnPadX = IS(16), warnH = IS(34);
+  imgRoundRect(ctx, x0, y, x0 + warnW + warnPadX * 2, y + warnH, IS(7));
+  ctx.fillStyle = imgLightTint(IMG_RED, 0.86); ctx.fill();
+  imgDrawCellText(ctx, x0 + warnW / 2 + warnPadX, y, warnH, warningTxt, warnF, IMG_RED);
+
+  y = (y - IS(58) - IS(38)) + IMG_TICKET_TITLE_H;
+
+  if(stats && stats.length){
+    const CARD_W = x1 - x0;
+    const chipGap = IS(16);
+    const chipW = (CARD_W - chipGap * (stats.length - 1)) / stats.length;
+    stats.forEach(([label, val], i) => {
+      const cxp = x0 + i * (chipW + chipGap);
+      imgRoundRect(ctx, cxp, y, cxp + chipW, y + IMG_TICKET_STAT_ROW_H, IS(10));
+      ctx.fillStyle = IMG_ROW_ZEBRA; ctx.fill();
+      const valF = pf('bold', 26), labF = pf('medium', 12);
+      imgDrawCellText(ctx, cxp + chipW / 2, y + IS(8), IS(34), val, valF, IMG_RED);
+      imgDrawCellText(ctx, cxp + chipW / 2, y + IS(40), IS(22), label, labF, IMG_MUTED_GREY);
+    });
+    y += IMG_TICKET_STAT_ROW_H;
+  }
+
+  return y + IMG_TICKET_GAP;
+}
+
+function imgDrawTicketFooter(ctx, x0, x1, y, footerCenterTxt){
+  ctx.strokeStyle = IMG_RED;
+  ctx.lineWidth = IS(2);
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  const textY = y + IS(16);
+  const footF = pf('medium', 12);
+  imgDrawTextAt(ctx, x0, textY, imgFooterTimestamp(), footF, IMG_MUTED_GREY);
+  const brandW = imgTextW(ctx, 'WARRIOR LOGISTICS LTD', footF);
+  imgDrawTextAt(ctx, x1 - brandW, textY, 'WARRIOR LOGISTICS LTD', footF, IMG_MUTED_GREY);
+  const centF = pf('bold', 14);
+  const centW = imgTextW(ctx, footerCenterTxt, centF);
+  imgDrawTextAt(ctx, x0 + (x1 - x0) / 2 - centW / 2, textY - IS(2), footerCenterTxt, centF, IMG_TEXT_DARK);
+  return y + IMG_TICKET_FOOTER_H;
+}
+
+// ============================================================
 // Top-level renders — ported from generate_wave_plan_image.py's
 // render() and generate_hv_collections_report.py's render(). Both
 // omit the logo, matching logo_img=None in the originals.
@@ -2103,104 +2358,98 @@ async function ensureImageFontsReady(){
   await document.fonts.ready;
 }
 
-function renderDeploymentPlanCanvas(built, stationCode, dateSuffix){
+function renderWavePlanCanvases(built, stationCode, dateSuffix){
   const rows = imgMapRows(built);
   imgResolveDriverDisplayNames(rows);
 
   const measure = document.createElement('canvas').getContext('2d');
   const cols = imgBuildCols(measure, rows);
   const CARD_W = cols.reduce((s, [, w]) => s + w, 0);
-  const x0 = IMG_MARGIN, x1 = IMG_MARGIN + CARD_W;
+  const x0 = IMG_TICKET_STRIPE_W + IMG_MARGIN, x1 = x0 + CARD_W;
 
-  const pairs = [];
-  for(const r of rows){
-    const trainee = r.ride_along_trainee;
-    if(trainee){
-      const day = r.ride_along_day || 1;
-      const arrival = (day === 1) ? '10:30' : r.arrival;
-      pairs.push({
-        trainer: r.display_name || r.driver, trainee,
-        van_no: r.van_no, reg: r.reg, route: r.route, stage: r.stage,
-        arrival, day,
-      });
-    }
-  }
   const sorted = imgSortRows(rows);
-  const noticeH = pairs.length ? imgTrainingNoticeHeight(pairs) : 0;
-  const finalH = IMG_MARGIN + IMG_STRIPE_H + IMG_HEADER_H + IMG_DATE_BAR_H
-    + IMG_HEADER_ROW_H + IMG_ROW_H * sorted.length + noticeH
-    + IMG_FOOTER_H + IMG_STRIPE_H + IMG_MARGIN;
-  const finalW = CARD_W + 2 * IMG_MARGIN;
+  const pageCount = Math.max(1, Math.ceil(sorted.length / IMG_WAVE_PAGE_LIMIT));
+  const canvases = [];
 
-  const canvas = document.createElement('canvas');
-  canvas.width = finalW; canvas.height = finalH;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, finalW, finalH);
+  for(let p = 0; p < pageCount; p++){
+    const pageRows = sorted.slice(p * IMG_WAVE_PAGE_LIMIT, (p + 1) * IMG_WAVE_PAGE_LIMIT);
 
-  let y = IMG_MARGIN;
-  y = imgDrawTopChrome(ctx, x0, x1, y, stationCode, 'DEPLOYMENT PLAN', IMG_DEFAULT_TAGLINE, IMG_DEFAULT_WARNING, stationCode, dateSuffix);
+    const pairs = [];
+    for(const r of pageRows){
+      const trainee = r.ride_along_trainee;
+      if(trainee){
+        const day = r.ride_along_day || 1;
+        const arrival = (day === 1) ? '10:30' : r.arrival;
+        pairs.push({
+          // Same "Surname Firstname" -> "Firstname Surname" flip used
+          // everywhere else a trainee/driver name is shown.
+          trainer: r.display_name || r.driver, trainee: swapFirstLast(trainee),
+          van_no: r.van_no, reg: r.reg, route: r.route, stage: r.stage,
+          arrival, day,
+        });
+      }
+    }
+    const noticeH = pairs.length ? imgTrainingNoticeHeight(pairs) : 0;
 
-  const tableFrameTop = y;
-  y = imgDrawTableHeader(ctx, x0, y, cols);
-  y = imgDrawTableRows(ctx, x0, y, sorted, IMG_WAVE_PALETTE_PASTEL, cols);
-  const mainTableBottom = y;
+    const driverCount = new Set(pageRows.map(r=>(r.display_name||r.driver||'').toString().trim().toUpperCase()).filter(Boolean)).size;
+    const vanCount = new Set(pageRows.filter(r=>r.van_no!=null && r.van_no!=='').map(r=>r.van_no)).size;
+    const atlasTotal = pageRows.reduce((s,r)=>s+(r.high_value||0),0);
+    const collTotal = pageRows.reduce((s,r)=>s+(r.collections||0),0);
+    const stats = [
+      ['ROUTES', String(pageRows.length)], ['DRIVERS', String(driverCount)], ['VANS', String(vanCount)],
+      ['ATLAS', String(atlasTotal)], ['COLLECTIONS', String(collTotal)],
+    ];
+    const pageLabel = pageCount > 1 ? `${p + 1}/${pageCount}` : null;
 
-  let noticeTop = null, noticeBottom = null;
-  if(pairs.length){
-    const res = imgDrawTrainingNotice(ctx, x0, y, cols[0][1], pairs, CARD_W);
-    y = res.y; noticeTop = res.noticeTop; noticeBottom = res.noticeBottom;
+    const headerH = imgTicketHeaderHeight(true);
+    const finalH = IMG_MARGIN + headerH
+      + IMG_HEADER_ROW_H + IMG_ROW_H * pageRows.length + noticeH
+      + IMG_TICKET_GAP + IMG_TICKET_FOOTER_H + IMG_MARGIN;
+    const finalW = x1 + IMG_MARGIN;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = finalW; canvas.height = finalH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, finalW, finalH);
+    imgDrawTicketStripe(ctx, finalH);
+
+    let y = IMG_MARGIN;
+    y = imgDrawTicketHeader(ctx, x0, x1, y, stationCode, 'WAVE PLAN', IMG_DEFAULT_TAGLINE, IMG_DEFAULT_WARNING, dateSuffix, stats, pageLabel);
+
+    const tableFrameTop = y;
+    y = imgDrawTableHeader(ctx, x0, y, cols);
+    y = imgDrawTableRows(ctx, x0, y, pageRows, IMG_WAVE_PALETTE_PASTEL, cols);
+
+    if(pairs.length){
+      const res = imgDrawTrainingNotice(ctx, x0, y, cols[0][1], pairs, CARD_W);
+      y = res.y;
+    }
+    ctx.strokeStyle = '#d8e6dc';
+    ctx.lineWidth = IS(1.5);
+    ctx.strokeRect(x0, tableFrameTop, CARD_W, y - tableFrameTop);
+
+    y += IMG_TICKET_GAP;
+    imgDrawTicketFooter(ctx, x0, x1, y, IMG_DEFAULT_FOOTER);
+
+    canvases.push(canvas);
   }
 
-  const footerBottom = imgDrawBottomChrome(ctx, x0, x1, y, imgFooterTimestamp(), IMG_DEFAULT_FOOTER, 'WARRIOR LOGISTICS LTD');
-
-  imgDrawSideBorders(ctx, x0, x1, tableFrameTop, mainTableBottom, noticeTop === null);
-  if(noticeTop !== null) imgDrawSideBorders(ctx, x0, x1, noticeTop, noticeBottom);
-
-  return canvas;
+  return canvases;
 }
 
-function renderAtlasCollectionsCanvas(built, stationCode, dateSuffix){
-  const mapped = imgMapRows(built).filter(r => (r.high_value || 0) > 0 || (r.collections || 0) > 0);
-  imgResolveDriverDisplayNames(mapped);
+const IMG_SECTION_LABEL_H = IS(46);
+const IMG_SECTION_GAP = IS(22);
 
-  const measure = document.createElement('canvas').getContext('2d');
-  const nameCols = imgBuildCols(measure, mapped);
-  const nameCol = nameCols[0];
-  const REPORT_COLS_RIGHT = [
-    ['ROUTE', IS(150)], ['STAGE', IS(150)], ['WAVE', IS(150)],
-    ['QUEUE', IS(150)], ['ATLAS', IS(150)], ['COLLECTION', IS(150)],
-  ];
-  const cols = [nameCol, ...REPORT_COLS_RIGHT];
-  const CARD_W = cols.reduce((s, [, w]) => s + w, 0);
-  const x0 = IMG_MARGIN, x1 = IMG_MARGIN + CARD_W;
+function imgDrawSectionLabel(ctx, x0, x1, y, text){
+  const f = pf('bold', 22);
+  imgDrawCellText(ctx, x0 + imgTextW(ctx, text, f) / 2, y, IMG_SECTION_LABEL_H, text, f, IMG_RED);
+  return y + IMG_SECTION_LABEL_H;
+}
 
-  const sorted = [...mapped].sort((a, b) => {
-    const ta = String(a.time || ''), tb = String(b.time || '');
-    if(ta !== tb) return ta < tb ? -1 : 1;
-    const na = imgDisplayCase(a.display_name || a.driver), nb = imgDisplayCase(b.display_name || b.driver);
-    return na < nb ? -1 : na > nb ? 1 : 0;
-  });
-
-  const finalH = IMG_MARGIN + IMG_STRIPE_H + IMG_HEADER_H + IMG_DATE_BAR_H
-    + IMG_HEADER_ROW_H + IMG_ROW_H * sorted.length
-    + IMG_FOOTER_H + IMG_STRIPE_H + IMG_MARGIN;
-  const finalW = CARD_W + 2 * IMG_MARGIN;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = finalW; canvas.height = finalH;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, finalW, finalH);
-
-  let y = IMG_MARGIN;
-  y = imgDrawTopChrome(ctx, x0, x1, y, stationCode, 'MANUAL PICKUP', IMG_HV_TAGLINE, IMG_HV_WARNING, stationCode, dateSuffix);
-
-  const tableFrameTop = y;
-  y = imgDrawTableHeader(ctx, x0, y, cols);
-
+function imgDrawAtlasCollectionsRows(ctx, x0, y, rows, cols, CARD_W){
   const f = imgRowFont(), fb = imgRowFontLarge();
-  sorted.forEach((r, i) => {
+  rows.forEach((r, i) => {
     const rowBg = (i % 2 === 1) ? IMG_ROW_ZEBRA : IMG_ROW_WHITE;
     ctx.fillStyle = rowBg;
     ctx.fillRect(x0, y, CARD_W, IMG_ROW_H);
@@ -2248,11 +2497,78 @@ function renderAtlasCollectionsCanvas(built, stationCode, dateSuffix){
     }
     y += IMG_ROW_H;
   });
-  const mainTableBottom = y;
+  return y;
+}
 
-  const footerBottom = imgDrawBottomChrome(ctx, x0, x1, y, imgFooterTimestamp(),
-    'INTERNAL MANAGEMENT REPORT DO NOT SEND TO DRIVERS', 'WARRIOR LOGISTICS LTD');
-  imgDrawSideBorders(ctx, x0, x1, tableFrameTop, mainTableBottom, true);
+function renderAtlasCollectionsCanvas(built, stationCode, dateSuffix){
+  const mapped = imgMapRows(built).filter(r => (r.high_value || 0) > 0 || (r.collections || 0) > 0);
+  imgResolveDriverDisplayNames(mapped);
+
+  const measure = document.createElement('canvas').getContext('2d');
+  const nameCols = imgBuildCols(measure, mapped);
+  const nameCol = nameCols[0];
+  const RIGHT_SHARED = [['ROUTE', IS(150)], ['STAGE', IS(150)], ['WAVE', IS(150)], ['QUEUE', IS(150)]];
+  const atlasCols = [nameCol, ...RIGHT_SHARED, ['ATLAS', IS(150)]];
+  const collCols = [nameCol, ...RIGHT_SHARED, ['COLLECTION', IS(150)]];
+  const CARD_W = atlasCols.reduce((s, [, w]) => s + w, 0);
+  const x0 = IMG_TICKET_STRIPE_W + IMG_MARGIN, x1 = x0 + CARD_W;
+
+  const sortRows = (rows) => [...rows].sort((a, b) => {
+    const ta = String(a.time || ''), tb = String(b.time || '');
+    if(ta !== tb) return ta < tb ? -1 : 1;
+    const na = imgDisplayCase(a.display_name || a.driver), nb = imgDisplayCase(b.display_name || b.driver);
+    return na < nb ? -1 : na > nb ? 1 : 0;
+  });
+
+  const atlasRows = sortRows(mapped.filter(r => (r.high_value || 0) > 0));
+  const collRows = sortRows(mapped.filter(r => (r.collections || 0) > 0));
+
+  const atlasTotal = atlasRows.reduce((s,r)=>s+(r.high_value||0),0);
+  const collTotal = collRows.reduce((s,r)=>s+(r.collections||0),0);
+  const stats = [
+    ['ROUTES', String(mapped.length)], ['ATLAS', String(atlasTotal)], ['COLLECTIONS', String(collTotal)],
+  ];
+
+  const headerH = imgTicketHeaderHeight(true);
+  const finalH = IMG_MARGIN + headerH
+    + IMG_SECTION_LABEL_H + IMG_HEADER_ROW_H + IMG_ROW_H * atlasRows.length
+    + IMG_SECTION_GAP
+    + IMG_SECTION_LABEL_H + IMG_HEADER_ROW_H + IMG_ROW_H * collRows.length
+    + IMG_TICKET_GAP + IMG_TICKET_FOOTER_H + IMG_MARGIN;
+  const finalW = x1 + IMG_MARGIN;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = finalW; canvas.height = finalH;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, finalW, finalH);
+  imgDrawTicketStripe(ctx, finalH);
+
+  let y = IMG_MARGIN;
+  y = imgDrawTicketHeader(ctx, x0, x1, y, stationCode, 'MANUAL PICKUP', IMG_HV_TAGLINE, IMG_HV_WARNING, dateSuffix, stats);
+
+  // --- Atlas Shipments table ---
+  y = imgDrawSectionLabel(ctx, x0, x1, y, 'ATLAS SHIPMENTS');
+  let tableFrameTop = y;
+  y = imgDrawTableHeader(ctx, x0, y, atlasCols);
+  y = imgDrawAtlasCollectionsRows(ctx, x0, y, atlasRows, atlasCols, CARD_W);
+  ctx.strokeStyle = '#d8e6dc';
+  ctx.lineWidth = IS(1.5);
+  ctx.strokeRect(x0, tableFrameTop, CARD_W, y - tableFrameTop);
+
+  y += IMG_SECTION_GAP;
+
+  // --- Home Collections table ---
+  y = imgDrawSectionLabel(ctx, x0, x1, y, 'HOME COLLECTIONS');
+  tableFrameTop = y;
+  y = imgDrawTableHeader(ctx, x0, y, collCols);
+  y = imgDrawAtlasCollectionsRows(ctx, x0, y, collRows, collCols, CARD_W);
+  ctx.strokeStyle = '#d8e6dc';
+  ctx.lineWidth = IS(1.5);
+  ctx.strokeRect(x0, tableFrameTop, CARD_W, y - tableFrameTop);
+
+  y += IMG_TICKET_GAP;
+  imgDrawTicketFooter(ctx, x0, x1, y, 'INTERNAL MANAGEMENT REPORT DO NOT SEND TO DRIVERS');
 
   return canvas;
 }
@@ -2261,38 +2577,67 @@ function renderAtlasCollectionsCanvas(built, stationCode, dateSuffix){
 function runExportButtonProgress(btnId, containerId, fillId, labelId, verbProgress, verbDone, afterFill){
   const btn = document.getElementById(btnId);
   const container = document.getElementById(containerId);
+  const fill = document.getElementById(fillId);
+  const label = document.getElementById(labelId);
   if(btn) btn.style.display = 'none';
-  runUploadProgress(containerId, fillId, labelId, verbProgress, verbDone, 1500, () => {
-    if(typeof afterFill === 'function') afterFill();
-    setTimeout(() => {
-      if(container) container.style.display = 'none';
-      if(btn) btn.style.display = '';
-    }, 900);
-  });
+  if(container) container.style.display = 'block';
+  if(fill) fill.style.width = '0%';
+  if(label) label.textContent = verbProgress + ' 0%';
+
+  // The real render/export work now starts immediately (below) instead of
+  // waiting behind a fixed-length fake animation first — that's what used
+  // to make the gap between clicking and the download actually starting
+  // feel long. This still keeps the bar moving the whole time so it never
+  // looks like nothing's happening: it eases up towards 90% for as long as
+  // the work takes, then jumps straight to 100% the moment it's actually
+  // done, so the total wait is only ever as long as the real work itself.
+  let done = false;
+  const start = performance.now();
+  function frame(now){
+    if(done) return;
+    const elapsed = now - start;
+    const pct = Math.min(90, Math.round(90 * (1 - Math.exp(-elapsed / 350))));
+    if(fill) fill.style.width = pct + '%';
+    if(label) label.textContent = verbProgress + ' ' + pct + '%';
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  Promise.resolve().then(() => (typeof afterFill === 'function' ? afterFill() : null))
+    .catch(err => console.error(err))
+    .then(() => {
+      done = true;
+      if(fill) fill.style.width = '100%';
+      if(label) label.textContent = verbDone + ' 100%';
+      setTimeout(() => {
+        if(container) container.style.display = 'none';
+        if(btn) btn.style.display = '';
+      }, 500);
+    });
 }
 
-document.getElementById('downloadDeploymentBlueprintBtn').onclick = () => {
+document.getElementById('downloadWaveBlueprintBtn').onclick = () => {
   if(!lastBuilt){ setExportStatus('error','Nothing to export yet.'); return; }
-  runExportButtonProgress('downloadDeploymentBlueprintBtn', 'deploymentBlueprintProgress', 'deploymentBlueprintProgressFill', 'deploymentBlueprintProgressLabel', 'BUILDING', 'BUILT', () => {
+  runExportButtonProgress('downloadWaveBlueprintBtn', 'waveBlueprintProgress', 'waveBlueprintProgressFill', 'waveBlueprintProgressLabel', 'BUILDING', 'BUILT', () => {
     const blob = buildXlsxBlob(lastBuilt, lastStation, lastPlanDate);
-    triggerDownload(blob, `${lastStation}_DEPLOYMENT_BLUEPRINT_${dateForFilename(lastPlanDate)}.xlsx`);
-    setExportStatus('ok', 'Deployment blueprint downloaded.');
+    triggerDownload(blob, `${lastStation}_WAVE_BLUEPRINT_${dateForFilename(lastPlanDate)}.xlsx`);
+    setExportStatus('ok', 'Wave blueprint downloaded.');
   });
 };
-document.getElementById('copyDeploymentBlueprintTextBtn').onclick = (e) => {
-  copyToClipboard(deploymentBlueprintCaptionText(), e.currentTarget);
+document.getElementById('copyWaveBlueprintTextBtn').onclick = (e) => {
+  copyToClipboard(waveBlueprintCaptionText(), e.currentTarget);
 };
 
 document.getElementById('downloadAtlasCollectionsBtn').onclick = () => {
   if(!lastBuilt){ setExportStatus('error','Nothing to export yet.'); return; }
+  IMG_RED = selectedAccentHex;
   runExportButtonProgress('downloadAtlasCollectionsBtn', 'atlasCollectionsProgress', 'atlasCollectionsProgressFill', 'atlasCollectionsProgressLabel', 'BUILDING', 'BUILT', async () => {
     try{
       await ensureImageFontsReady();
       const canvas = renderAtlasCollectionsCanvas(lastBuilt, lastStation, lastPlanDate);
-      canvas.toBlob(blob => {
-        triggerDownload(blob, `${lastStation}_ATLAS_COLLECTIONS_${dateForFilename(lastPlanDate)}.png`);
-        setExportStatus('ok', 'Atlas & Collections PNG downloaded.');
-      });
+      const blob = await canvasToBlob(canvas);
+      triggerDownload(blob, `${lastStation}_ATLAS_COLLECTIONS_${dateForFilename(lastPlanDate)}.png`);
+      setExportStatus('ok', 'Atlas & Collections PNG downloaded.');
     }catch(err){
       console.error(err);
       setExportStatus('error', 'Could not render the PNG — see the browser console for details.');
@@ -2304,25 +2649,41 @@ document.getElementById('copyAtlasCollectionsTextBtn').onclick = (e) => {
   copyToClipboard(atlasCollectionsCaptionText(), e.currentTarget);
 };
 
-document.getElementById('downloadDeploymentPlanBtn').onclick = () => {
+function canvasToBlob(canvas){
+  return new Promise(resolve => canvas.toBlob(resolve));
+}
+
+document.getElementById('downloadWavePlanBtn').onclick = () => {
   if(!lastBuilt){ setExportStatus('error','Nothing to export yet.'); return; }
-  runExportButtonProgress('downloadDeploymentPlanBtn', 'deploymentPlanProgress', 'deploymentPlanProgressFill', 'deploymentPlanProgressLabel', 'BUILDING', 'BUILT', async () => {
+  IMG_RED = selectedAccentHex;
+  runExportButtonProgress('downloadWavePlanBtn', 'wavePlanProgress', 'wavePlanProgressFill', 'wavePlanProgressLabel', 'BUILDING', 'BUILT', async () => {
     try{
       await ensureImageFontsReady();
-      const canvas = renderDeploymentPlanCanvas(lastBuilt, lastStation, lastPlanDate);
-      canvas.toBlob(blob => {
-        triggerDownload(blob, `${lastStation}_DEPLOYMENT_PLAN_${dateForFilename(lastPlanDate)}.png`);
-        setExportStatus('ok', 'Deployment Plan PNG downloaded.');
-      });
+      const canvases = renderWavePlanCanvases(lastBuilt, lastStation, lastPlanDate);
+      const baseName = `${lastStation}_WAVE_PLAN_${dateForFilename(lastPlanDate)}`;
+      if(canvases.length === 1){
+        const blob = await canvasToBlob(canvases[0]);
+        triggerDownload(blob, `${baseName}.png`);
+        setExportStatus('ok', 'Wave Plan PNG downloaded.');
+      }else{
+        const blobs = await Promise.all(canvases.map(canvasToBlob));
+        const zip = new JSZip();
+        blobs.forEach((blob, i) => {
+          zip.file(`${baseName}_${i + 1}of${blobs.length}.png`, blob);
+        });
+        const zipBlob = await zip.generateAsync({type: 'blob'});
+        triggerDownload(zipBlob, `${baseName}.zip`);
+        setExportStatus('ok', `Wave Plan PNGs downloaded — ${blobs.length} images, zipped (over ${IMG_WAVE_PAGE_LIMIT} routes).`);
+      }
     }catch(err){
       console.error(err);
       setExportStatus('error', 'Could not render the PNG — see the browser console for details.');
     }
   });
 };
-document.getElementById('copyDeploymentPlanTextBtn').onclick = (e) => {
+document.getElementById('copyWavePlanTextBtn').onclick = (e) => {
   if(!lastBuilt){ setExportStatus('error','Nothing to generate a message for yet.'); return; }
-  copyToClipboard(deploymentPlanCaptionText(), e.currentTarget);
+  copyToClipboard(wavePlanCaptionText(), e.currentTarget);
 };
 
 document.getElementById('applyReviewBtn').onclick = () => {
@@ -2344,7 +2705,20 @@ document.getElementById('applyReviewBtn').onclick = () => {
     });
   });
   populateResultsPage(lastBuilt, lastStation, lastPlanDate);
-  setStatus('ok', 'Changes applied — spreadsheet and message updated.');
+
+  // Direct feedback on the button itself (same green flash used by the
+  // TEXT copy buttons) — the old status strip this used to rely on is
+  // gone, and a silent table refresh alone didn't make it obvious the
+  // click actually did something.
+  const applyBtn = document.getElementById('applyReviewBtn');
+  const originalLabel = 'APPLY CHANGES';
+  applyBtn.classList.add('flash-copied');
+  applyBtn.textContent = '✓ APPLIED';
+  clearTimeout(applyBtn._flashTimer);
+  applyBtn._flashTimer = setTimeout(() => {
+    applyBtn.textContent = originalLabel;
+    applyBtn.classList.remove('flash-copied');
+  }, 1200);
 };
 
 // Animated "generating" transition shown between clicking Generate and
@@ -2397,7 +2771,7 @@ function addDownload(container, blob, filename, label){
 
 function buildXlsxBlob(built, station, planDate){
   const headerRow = ["ROUTE","DRIVER NAME","STAGE","WAVE","TIME","ARRIVAL","HIGH VALUE","COLLECTION","VAN","REG","RIDE ALONG TRAINEE","RIDE ALONG DAY"];
-  const data = [[`${station} DEPLOYMENT PLAN`,,,,,,,,,,planDate], headerRow];
+  const data = [[`${station} WAVE PLAN`,,,,,,,,,,planDate], headerRow];
   for(const r of built){
     data.push([
       typeof r.route === 'string' ? r.route.replace(/^CA_/, '') : r.route,
@@ -2417,7 +2791,7 @@ function buildXlsxBlob(built, station, planDate){
 function buildWhatsAppMessage(station, planDate){
   const dm = planDate.match(/(\d{1,2})\/(\d{1,2})/);
   const dmShort = dm ? `${dm[1]}/${dm[2]}` : planDate;
-  return `*${station} VAN LIST & DEPLOYMENT PLAN (${dmShort})*
+  return `*${station} VAN LIST & WAVE PLAN (${dmShort})*
 
 ⏰ *LOGIN TIME* ⏰
 Don't log into the Amazon Flex app until the time shown next to your name
@@ -2434,11 +2808,10 @@ You have a Home Collection today and will need to get a label from me at loadout
 }
 
 /* ---------- pre-list (roster-only path): two-column PNG ---------- */
-// Warrior Ops roster entries are transcribed "Surname Firstname" (matches
-// how they're naturally read off the screenshot). This flips a name to
-// "Firstname Surname" for display — ports the original pipeline's
-// swap_first_last(), used only for driver names (ride-along trainees are
-// already entered Firstname Surname and are never swapped).
+// Warrior Ops roster entries — both drivers and ride-along trainees — are
+// transcribed "Surname Firstname" (matches how they're naturally read off
+// the screenshot). This flips a name to "Firstname Surname" for display —
+// ports the original pipeline's swap_first_last(), applied to both.
 function swapFirstLast(name){
   const tokens = (name || '').trim().split(/\s+/);
   if(tokens.length < 2) return name;
@@ -2451,7 +2824,7 @@ function buildPreListNames(roster){
   let names = [];
   for(const entry of roster){
     if(entry.driver) names.push(swapFirstLast(entry.driver));
-    if(entry.ride_along_trainee) names.push(entry.ride_along_trainee);
+    if(entry.ride_along_trainee) names.push(swapFirstLast(entry.ride_along_trainee));
   }
   return [...new Set(names)].sort((a,b)=>a.localeCompare(b));
 }
@@ -2481,22 +2854,25 @@ function renderPreListCanvas(names, station, planDate){
   while(col2.length < col1.length) col2.push(null);   // blank, still zebra-shaded
 
   const CARD_W = IMG_PRELIST_NAME_COL_W * 2 + IMG_PRELIST_COL_GAP;
-  const x0 = IMG_MARGIN, x1 = IMG_MARGIN + CARD_W;
+  const x0 = IMG_TICKET_STRIPE_W + IMG_MARGIN, x1 = x0 + CARD_W;
   const divX = x0 + IMG_PRELIST_NAME_COL_W + IMG_PRELIST_COL_GAP / 2;
 
-  const finalW = CARD_W + 2 * IMG_MARGIN;
-  const finalH = IMG_MARGIN + IMG_STRIPE_H + IMG_HEADER_H + IMG_DATE_BAR_H
+  const stats = [['DRIVERS', String(names.length)]];
+  const headerH = imgTicketHeaderHeight(true);
+  const finalW = x1 + IMG_MARGIN;
+  const finalH = IMG_MARGIN + headerH
     + IMG_HEADER_ROW_H + IMG_ROW_H * col1.length
-    + IMG_FOOTER_H + IMG_STRIPE_H + IMG_MARGIN;
+    + IMG_TICKET_GAP + IMG_TICKET_FOOTER_H + IMG_MARGIN;
 
   const canvas = document.createElement('canvas');
   canvas.width = finalW; canvas.height = finalH;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, finalW, finalH);
+  imgDrawTicketStripe(ctx, finalH);
 
   let y = IMG_MARGIN;
-  y = imgDrawTopChrome(ctx, x0, x1, y, station, 'SAMEDAY ATTENDANCE', IMG_PRELIST_TAGLINE, IMG_PRELIST_WARNING, station, planDate);
+  y = imgDrawTicketHeader(ctx, x0, x1, y, station, 'SAMEDAY ATTENDANCE', IMG_PRELIST_TAGLINE, IMG_PRELIST_WARNING, planDate, stats);
 
   const tableFrameTop = y;
 
@@ -2539,9 +2915,9 @@ function renderPreListCanvas(names, station, planDate){
 
   y = mainTableBottom;
 
-  imgDrawBottomChrome(ctx, x0, x1, y, imgFooterTimestamp(), IMG_PRELIST_FOOTER_CENTER, 'WARRIOR LOGISTICS LTD');
-
-  imgDrawSideBorders(ctx, x0, x1, tableFrameTop, mainTableBottom);
+  ctx.strokeStyle = '#d8e6dc';
+  ctx.lineWidth = IS(1.5);
+  ctx.strokeRect(x0, tableFrameTop, CARD_W, mainTableBottom - tableFrameTop);
   ctx.strokeStyle = '#161616';
   ctx.lineWidth = IS(2);
   ctx.beginPath();
@@ -2549,17 +2925,25 @@ function renderPreListCanvas(names, station, planDate){
   ctx.lineTo(divX, mainTableBottom);
   ctx.stroke();
 
+  y += IMG_TICKET_GAP;
+  imgDrawTicketFooter(ctx, x0, x1, y, IMG_PRELIST_FOOTER_CENTER);
+
   return canvas;
 }
 
 /* ---------- auto-fill station/date from the Routes filename ---------- */
 document.getElementById('routesFile').addEventListener('click', () => {
-  document.getElementById('downloadConfirmListInlineBtn').style.display = 'none';
+  // Hide the whole confirm-list block (download button + TEXT button
+  // together) the instant Routes is clicked to browse — not just the
+  // download button — so the pair disappears as one unit right away,
+  // rather than the TEXT button lingering until the file actually lands.
+  const wrap = document.getElementById('confirmListActions');
+  if(wrap) wrap.style.display = 'none';
 });
 document.getElementById('routesFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   updateGenerateButtonState();
-  if(!file){ setPill('routesPill', false, 'EMPTY'); updateStepper(); updateConfirmListButtonVisibility(); return; }
+  if(!file){ setPill('routesPill', false, 'EMPTY'); refreshDetailsStatus(); updateConfirmListButtonVisibility(); return; }
   updateConfirmListButtonVisibility(); // hiding the confirm-list button stays instant, not gated
 
   let rows = null, parseError = false;
@@ -2667,6 +3051,7 @@ window.addEventListener('resize', () => {
 });
 
 updateGenerateButtonState();
+
 </script>
 </body>
 </html>
