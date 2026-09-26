@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DLS4 Deployment Plan Generator</title>
+<title>Deployment Plan Generator</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Poppins:wght@400;500;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -318,7 +318,7 @@
           <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
             <div style="flex:1; display:flex; flex-direction:column;">
               <label for="stationCode" class="sr-only">Station code</label>
-              <input type="text" id="stationCode" placeholder="Station code" value="DLS4" style="flex:1; height:auto;">
+              <input type="text" id="stationCode" placeholder="Station code" value="" style="flex:1; height:auto;">
             </div>
             <div style="flex:1; display:flex; flex-direction:column;">
               <label for="planDate" class="sr-only">Date</label>
@@ -789,7 +789,7 @@ function confirmListCaptionText(){
   const station = document.getElementById('stationCode').value.trim() || 'STATION';
   const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
   const dm = (planDate.match(/\d{1,2}\/\d{1,2}/) || [planDate])[0];
-  return `*SAMEDAY ATTENDANCE (${dm})*\n\nCheck your name is on the list and give a thumbs up reaction to confirm👍🏼`;
+  return `*${station} SAMEDAY ATTENDANCE (${dm})*\n\nCheck your name is on the list and give a thumbs up reaction to confirm👍🏼`;
 }
 document.getElementById('copyConfirmListTextBtn').onclick = (e) => {
   if(!lastRoster) return;
@@ -812,18 +812,27 @@ document.getElementById('rosterFile').addEventListener('change', async (e) => {
 
   // The confirmation list is often generated before the Routes file even
   // exists (it's built from the roster alone), so the Routes-filename
-  // date auto-fill below hasn't had a chance to run yet. Read the date
-  // straight from the roster filename instead, if it's there — matches
-  // "YYYY-MM-DD" anywhere in the name (e.g. "van_roster_2026-08-31.xlsx",
-  // "DLS4_ROSTER_2026-08-31.csv") — so the confirmation list's caption and
-  // PNG date are correct without typing the date in by hand.
+  // auto-fill below hasn't had a chance to run yet. Read both the station
+  // and the date straight from the roster filename instead, if they're
+  // there — this is also what makes the tool work across every station
+  // (DLS4, DXS1, DXG2, HSA7, ...) rather than just one: whichever station
+  // a roster is named for is the one that ends up on its confirmation
+  // list. Date matches "YYYY-MM-DD" anywhere in the name (e.g.
+  // "van_roster_2026-08-31.xlsx", "DLS4_ROSTER_2026-08-31.csv"). Station
+  // matches a station-code-shaped token — 2-4 letters immediately
+  // followed by 1-2 digits (DLS4, DXS1, DXG2, HSA7) — anywhere in the
+  // name, so it doesn't matter where in the filename it sits.
   if(!parseError){
+    const stationMatch = file.name.match(/(?:^|[_\-.\s])([A-Za-z]{2,4}\d{1,2})(?:[_\-.\s]|$)/i);
+    if(stationMatch){
+      document.getElementById('stationCode').value = stationMatch[1].toUpperCase();
+    }
     const dateMatch = file.name.match(/(\d{4})-(\d{2})-(\d{2})/);
     if(dateMatch){
       const [, y, mo, d] = dateMatch;
       document.getElementById('planDate').value = `${d}/${mo}/${y.slice(2)}`;
-      refreshDetailsStatus();
     }
+    if(stationMatch || dateMatch) refreshDetailsStatus();
   }
   // Pill and the confirm-list button both stay hidden/EMPTY until the bar
   // itself actually reaches 100% — not the instant the file finishes
@@ -1372,10 +1381,10 @@ function deploymentBlueprintCaptionText(){
 }
 function atlasCollectionsCaptionText(){
   const dm = (lastPlanDate.match(/\d{1,2}\/\d{1,2}/) || [lastPlanDate])[0];
-  return `*ATLAS & COLLECTIONS (${dm})* Routes carrying a High Value parcel and/or a Home Collection today 👍🏼`;
+  return `*${lastStation} ATLAS & COLLECTIONS (${dm})* Routes carrying a High Value parcel and/or a Home Collection today 👍🏼`;
 }
 function deploymentPlanCaptionText(){
-  return buildWhatsAppMessage(lastPlanDate);
+  return buildWhatsAppMessage(lastStation, lastPlanDate);
 }
 
 // Swaps an export button for its progress bar on click — the bar takes
@@ -2405,10 +2414,10 @@ function buildXlsxBlob(built, station, planDate){
   return new Blob([out], {type:'application/octet-stream'});
 }
 
-function buildWhatsAppMessage(planDate){
+function buildWhatsAppMessage(station, planDate){
   const dm = planDate.match(/(\d{1,2})\/(\d{1,2})/);
   const dmShort = dm ? `${dm[1]}/${dm[2]}` : planDate;
-  return `*VAN LIST & DEPLOYMENT PLAN (${dmShort})*
+  return `*${station} VAN LIST & DEPLOYMENT PLAN (${dmShort})*
 
 ⏰ *LOGIN TIME* ⏰
 Don't log into the Amazon Flex app until the time shown next to your name
