@@ -24,6 +24,7 @@
   body{
     margin:0; background:var(--bg); color:var(--text);
     font-family:'Space Grotesk', system-ui, sans-serif;
+    overflow-anchor:none;
   }
   .mono{font-family:'IBM Plex Mono', ui-monospace, monospace;}
   a{color:var(--red);}
@@ -67,7 +68,7 @@
     width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
     font-size:13.5px; background:var(--surface-2); color:var(--text); font-family:inherit;
   }
-  input[type=text]:focus, textarea:focus{outline:2px solid var(--red); outline-offset:1px;}
+  input[type=text]:focus, textarea:focus{outline:1.5px solid #fff; outline-offset:1px;}
   textarea{
     width:100%; min-height:120px; padding:10px 12px; border:1px solid var(--border);
     border-radius:8px; font-family:'IBM Plex Mono',monospace; font-size:11.5px; resize:vertical;
@@ -117,17 +118,20 @@
   .btn-primary:hover{background:var(--red-bright);}
   .btn-primary:disabled{background:var(--surface-2); color:var(--muted); cursor:not-allowed; opacity:0.7;}
   .btn-primary:disabled:hover{background:var(--surface-2);}
-  /* Confirms which report accent colour is currently selected — only the
-     three buttons whose download is actually coloured by it (Wave Blueprint
-     stays the site's default red since its .xlsx has no colour in it). JS
-     sets --accent-btn/--accent-btn-hover on these three elements; until it
-     does, they fall back to the site's normal button colours. */
-  #downloadWavePlanBtn, #downloadAtlasCollectionsBtn, #downloadConfirmListInlineBtn{
+  /* Confirms which report accent colour is currently selected — every
+     DOWNLOAD button follows it. JS sets --accent-btn/--accent-btn-hover on
+     these elements; until it does, they fall back to the site's normal
+     button colours. */
+  #downloadWavePlanBtn, #downloadAtlasCollectionsBtn, #downloadWaveBlueprintBtn, #downloadConfirmListInlineBtn{
     background:var(--accent-btn, var(--red));
   }
-  #downloadWavePlanBtn:hover, #downloadAtlasCollectionsBtn:hover, #downloadConfirmListInlineBtn:hover{
+  #downloadWavePlanBtn:hover, #downloadAtlasCollectionsBtn:hover, #downloadWaveBlueprintBtn:hover, #downloadConfirmListInlineBtn:hover{
     background:var(--accent-btn-hover, var(--red-bright));
   }
+  /* VIEW buttons are always green, regardless of the accent colour picker —
+     they open a preview, not a branded, colour-coded export. */
+  .export-view-btn{background:var(--green);}
+  .export-view-btn:hover{background:#3fc072;}
   .btn-generate{width:100%;}
   .btn-ghost{
     background:transparent; color:var(--muted); border:1px solid var(--border); padding:9px 16px;
@@ -135,6 +139,8 @@
     display:inline-flex; align-items:center; justify-content:center; line-height:1;
   }
   .btn-ghost:hover{color:var(--text); border-color:var(--muted);}
+  .btn-ghost:disabled{color:var(--muted); border-color:var(--border); cursor:not-allowed; opacity:0.55;}
+  .btn-ghost:disabled:hover{color:var(--muted); border-color:var(--border);}
   .secondary{background:var(--surface-2); color:var(--text); border:1px solid var(--border); padding:10px 16px; border-radius:8px; font-size:13px;}
   .secondary:hover{background:var(--border);}
 
@@ -214,7 +220,7 @@
   /* review modal */
   .results-page{min-height:100vh; background:var(--bg);}
   .results-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px;}
-  .review-table-wrap{overflow:auto; border:1px solid var(--border); border-radius:7px; height:420px; min-height:200px; resize:vertical;}
+  .review-table-wrap{overflow:auto; overflow-anchor:none; border:1px solid var(--border); border-radius:7px; height:420px; min-height:200px; resize:vertical;}
   .stats-bar{display:flex; align-items:center; justify-content:center; gap:0; padding:16px 4px; margin-bottom:20px; border-bottom:1px solid var(--border); flex-wrap:wrap;}
   .stat-item{display:flex; flex-direction:column; align-items:center; gap:3px; min-width:76px;}
   .stat-value{font-size:19px; font-weight:700; font-family:'IBM Plex Mono',monospace; color:var(--text);}
@@ -227,7 +233,11 @@
   .export-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px;}
   @media (max-width:820px){ .export-grid{grid-template-columns:1fr;} }
   .export-item{display:flex; flex-direction:column; gap:8px;}
+  .export-label{font-size:14.5px; font-weight:600; color:var(--text); text-align:center; font-family:inherit;}
   .export-btn{width:100%;}
+  .export-btn-row{display:flex; gap:8px;}
+  .export-btn-row .export-btn{width:auto; flex:1 1 auto;}
+  .export-view-btn{flex:0 0 108px; padding:15px 10px; font-size:13px; margin-top:0; border-radius:7px;}
   .export-item .upload-progress{height:48px; border-radius:7px; margin-top:0;}
   .export-item .upload-progress-label{font-size:13px;}
   .export-text-btn{width:100%; padding:9px 16px; font-size:12.5px;}
@@ -241,10 +251,10 @@
   table.review-table th, table.review-table td{border:1px solid var(--border); padding:9px 10px; text-align:center; white-space:nowrap;}
   table.review-table th{background:var(--surface-2); color:var(--muted); font-weight:500; position:sticky; top:0; z-index:1;}
   table.review-table td[contenteditable="true"]{cursor:text;}
-  table.review-table td[contenteditable="true"]:focus{outline:2px solid var(--red); outline-offset:-2px; background:var(--surface-2);}
+  table.review-table td[contenteditable="true"]:focus{outline:1.5px solid #fff; outline-offset:-2px; background:var(--surface-2);}
   table.review-table tr:nth-child(even) td{background:var(--surface-2);}
   table.review-table tr.row-error td{background:rgba(204,0,0,.16); color:#f8b4b4;}
-  .review-errors{border:1px solid #5c2222; background:#241111; border-radius:7px; padding:16px 18px; margin-bottom:18px;}
+  .review-errors{border:1px solid #5c2222; background:#241111; border-radius:7px; padding:16px 18px; margin-bottom:18px; box-sizing:border-box; height:140px; min-height:70px; resize:vertical; overflow:auto; overflow-anchor:none;}
   .review-errors h3{margin:0 0 10px; font-size:13.5px; color:#f28b82; font-weight:600; text-transform:uppercase;}
   .review-errors ul{margin:0; padding-left:18px; font-size:12.5px; color:#f2b8b8; line-height:1.7;}
   .review-errors ul + h3{margin-top:14px;}
@@ -262,7 +272,7 @@
         <div class="tagline">EVERYTHING THAT'S NEEDED ALL IN ONE PLACE</div>
       </div>
 
-      <div></div>
+      <button type="button" class="btn-ghost" id="refreshPageBtn" style="justify-self:end;">↻ REFRESH</button>
     </div>
 
     <div class="stepper" id="topStepper">
@@ -445,6 +455,16 @@
   </div>
 </div>
 
+<div id="imagePreviewModal" class="wave-modal">
+  <div class="wave-modal-panel" style="max-width:1200px;">
+    <div class="results-head" style="margin-bottom:16px;">
+      <h2 style="margin:0;" id="imagePreviewTitle">Preview</h2>
+      <button type="button" class="btn-ghost" id="closeImagePreviewBtn">Close</button>
+    </div>
+    <div id="imagePreviewBody" style="max-height:75vh; overflow:auto; border-radius:8px; border:1px solid var(--border);"></div>
+  </div>
+</div>
+
 <div id="transitionScreen" class="transition-screen">
   <div class="transition-content">
     <div class="transition-ring"></div>
@@ -496,7 +516,7 @@
     </div>
     <div class="actions" style="justify-content:flex-end;">
       <button type="button" class="btn-ghost" id="openWaveScheduleBtn" style="margin-top:0;">WAVE SCHEDULE</button>
-      <button type="button" class="btn-primary" id="applyReviewBtn">APPLY CHANGES</button>
+      <button type="button" class="btn-primary" id="applyReviewBtn" style="min-width:165px;">APPLY CHANGES</button>
     </div>
 
     <div class="panel" style="margin-top:24px;">
@@ -509,7 +529,11 @@
 
       <div class="export-grid">
         <div class="export-item">
-          <button type="button" class="btn-primary export-btn" id="downloadWavePlanBtn">WAVE PLAN</button>
+          <div class="export-label">WAVE PLAN</div>
+          <div class="export-btn-row">
+            <button type="button" class="btn-primary export-btn" id="downloadWavePlanBtn">DOWNLOAD</button>
+            <button type="button" class="btn-primary export-view-btn" id="viewWavePlanBtn">VIEW</button>
+          </div>
           <div class="upload-progress" id="wavePlanProgress">
             <div class="upload-progress-fill" id="wavePlanProgressFill"></div>
             <span class="upload-progress-label" id="wavePlanProgressLabel">0%</span>
@@ -517,7 +541,11 @@
           <button type="button" class="btn-ghost export-text-btn" id="copyWavePlanTextBtn">COPY MESSAGE</button>
         </div>
         <div class="export-item">
-          <button type="button" class="btn-primary export-btn" id="downloadAtlasCollectionsBtn">ATLAS &amp; COLLECTIONS</button>
+          <div class="export-label">ATLAS &amp; COLLECTIONS</div>
+          <div class="export-btn-row">
+            <button type="button" class="btn-primary export-btn" id="downloadAtlasCollectionsBtn">DOWNLOAD</button>
+            <button type="button" class="btn-primary export-view-btn" id="viewAtlasCollectionsBtn">VIEW</button>
+          </div>
           <div class="upload-progress" id="atlasCollectionsProgress">
             <div class="upload-progress-fill" id="atlasCollectionsProgressFill"></div>
             <span class="upload-progress-label" id="atlasCollectionsProgressLabel">0%</span>
@@ -525,7 +553,11 @@
           <button type="button" class="btn-ghost export-text-btn" id="copyAtlasCollectionsTextBtn">COPY MESSAGE</button>
         </div>
         <div class="export-item">
-          <button type="button" class="btn-primary export-btn" id="downloadWaveBlueprintBtn">WAVE BLUEPRINT</button>
+          <div class="export-label">WAVE PLAN BLUEPRINT</div>
+          <div class="export-btn-row">
+            <button type="button" class="btn-primary export-btn" id="downloadWaveBlueprintBtn">DOWNLOAD</button>
+            <button type="button" class="btn-primary export-view-btn" id="viewWaveBlueprintBtn">VIEW</button>
+          </div>
           <div class="upload-progress" id="waveBlueprintProgress">
             <div class="upload-progress-fill" id="waveBlueprintProgressFill"></div>
             <span class="upload-progress-label" id="waveBlueprintProgressLabel">0%</span>
@@ -838,7 +870,7 @@ document.getElementById('downloadConfirmListInlineBtn').onclick = async () => {
     const names = buildPreListNames(lastRoster);
     const canvas = renderPreListCanvas(names, station, planDate);
     const blob = await canvasToBlob(canvas);
-    triggerDownload(blob, `${station}_PRELIST_${dateForFilename(planDate)}.png`);
+    triggerDownload(blob, `${station}_SAMEDAY_ATTENDANCE_${dateForFilename(planDate)}.png`);
   }catch(err){
     console.error(err);
     setExportStatus('error', 'Could not render the PNG — see the browser console for details.');
@@ -1375,6 +1407,12 @@ function closeReviewModal(){
 }
 document.getElementById('closeReviewBtn').onclick = closeReviewModal;
 
+document.getElementById('refreshPageBtn').onclick = function(){
+  if(confirm('Start again? This clears everything on this page.')){
+    location.reload();
+  }
+};
+
 function populateResultsPage(built, station, planDate){
   const issues = computeIssues(built);
   document.getElementById('reviewMeta').textContent = `${station} · ${planDate}`;
@@ -1521,12 +1559,11 @@ function imgLightTint(hex, amount = 0.88){
   return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
 }
 
-// The three buttons whose downloaded PNG is actually coloured by the
-// accent — Wave Blueprint is left alone since it downloads a plain .xlsx
-// with no colour in it. Recolouring these on selection is just a live
-// confirmation of which accent is currently active; it doesn't touch any
-// other button on the site.
-const ACCENT_BUTTON_IDS = ['downloadWavePlanBtn', 'downloadAtlasCollectionsBtn', 'downloadConfirmListInlineBtn'];
+// Every DOWNLOAD button follows the selected accent (Wave Blueprint's own
+// .xlsx has no colour in it, but the button still matches for consistency).
+// Recolouring these on selection is just a live confirmation of which
+// accent is currently active; VIEW buttons stay green regardless.
+const ACCENT_BUTTON_IDS = ['downloadWavePlanBtn', 'downloadAtlasCollectionsBtn', 'downloadWaveBlueprintBtn', 'downloadConfirmListInlineBtn'];
 function accentButtonHoverShade(hex){
   const { r, g, b } = imgHexToRgb(hex);
   const mix = (c) => Math.round(c + (255 - c) * 0.18);
@@ -2579,7 +2616,10 @@ function runExportButtonProgress(btnId, containerId, fillId, labelId, verbProgre
   const container = document.getElementById(containerId);
   const fill = document.getElementById(fillId);
   const label = document.getElementById(labelId);
-  if(btn) btn.style.display = 'none';
+  // Disable the button rather than hiding it, so its row keeps the exact
+  // same size and its neighbour (e.g. the VIEW button next to DOWNLOAD)
+  // never has to shift into the gap it would otherwise leave behind.
+  if(btn) btn.disabled = true;
   if(container) container.style.display = 'block';
   if(fill) fill.style.width = '0%';
   if(label) label.textContent = verbProgress + ' 0%';
@@ -2611,14 +2651,14 @@ function runExportButtonProgress(btnId, containerId, fillId, labelId, verbProgre
       if(label) label.textContent = verbDone + ' 100%';
       setTimeout(() => {
         if(container) container.style.display = 'none';
-        if(btn) btn.style.display = '';
+        if(btn) btn.disabled = false;
       }, 500);
     });
 }
 
 document.getElementById('downloadWaveBlueprintBtn').onclick = () => {
   if(!lastBuilt){ setExportStatus('error','Nothing to export yet.'); return; }
-  runExportButtonProgress('downloadWaveBlueprintBtn', 'waveBlueprintProgress', 'waveBlueprintProgressFill', 'waveBlueprintProgressLabel', 'BUILDING', 'BUILT', () => {
+  runExportButtonProgress('downloadWaveBlueprintBtn', 'waveBlueprintProgress', 'waveBlueprintProgressFill', 'waveBlueprintProgressLabel', 'RENDERING', 'RENDERED', () => {
     const blob = buildXlsxBlob(lastBuilt, lastStation, lastPlanDate);
     triggerDownload(blob, `${lastStation}_WAVE_BLUEPRINT_${dateForFilename(lastPlanDate)}.xlsx`);
     setExportStatus('ok', 'Wave blueprint downloaded.');
@@ -2628,10 +2668,38 @@ document.getElementById('copyWaveBlueprintTextBtn').onclick = (e) => {
   copyToClipboard(waveBlueprintCaptionText(), e.currentTarget);
 };
 
+// Read-only HTML rendering of the exact same rows that go into the .xlsx —
+// there's no image to show for a spreadsheet, so VIEW opens this table in
+// the same preview popup used by the two PNG reports instead.
+function buildXlsxPreviewHtml(built, station, planDate){
+  const headerRow = ["ROUTE","DRIVER NAME","STAGE","WAVE","TIME","ARRIVAL","HIGH VALUE","COLLECTION","VAN","REG","RIDE ALONG TRAINEE","RIDE ALONG DAY"];
+  let html = `<table style="width:100%; border-collapse:collapse; font-size:12.5px; font-family:'IBM Plex Mono',monospace; background:#fff; color:#111;">`;
+  html += `<caption style="caption-side:top; text-align:left; padding:10px 12px; font-weight:700; font-family:'Space Grotesk',system-ui,sans-serif; background:#eee;">${station} WAVE PLAN — ${planDate}</caption>`;
+  html += '<thead><tr>' + headerRow.map(h => `<th style="border:1px solid #444; padding:7px 9px; background:#1b1b1b; color:#fff; position:sticky; top:0; white-space:nowrap;">${h}</th>`).join('') + '</tr></thead><tbody>';
+  built.forEach((r, i) => {
+    const cells = [
+      typeof r.route === 'string' ? r.route.replace(/^CA_/, '') : (r.route || ''),
+      r.driver || '', r.stage || '', r.wave || '', r.time || '', r.arrival || '',
+      r.high_value || '', r.collection || '', r.van ?? '', r.reg || '',
+      r.ride_along_trainee || '', r.ride_along_trainee ? (r.ride_along_day || '') : '',
+    ];
+    const bg = i % 2 ? '#f2f2f2' : '#fff';
+    html += `<tr>` + cells.map(c => `<td style="border:1px solid #ddd; padding:5px 9px; text-align:center; white-space:nowrap; background:${bg};">${c}</td>`).join('') + '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+document.getElementById('viewWaveBlueprintBtn').onclick = () => {
+  if(!lastBuilt){ setExportStatus('error','Nothing to view yet.'); return; }
+  runExportButtonProgress('viewWaveBlueprintBtn', 'waveBlueprintProgress', 'waveBlueprintProgressFill', 'waveBlueprintProgressLabel', 'RENDERING', 'RENDERED', () => {
+    openTablePreview('Wave Plan Blueprint', buildXlsxPreviewHtml(lastBuilt, lastStation, lastPlanDate));
+  });
+};
+
 document.getElementById('downloadAtlasCollectionsBtn').onclick = () => {
   if(!lastBuilt){ setExportStatus('error','Nothing to export yet.'); return; }
   IMG_RED = selectedAccentHex;
-  runExportButtonProgress('downloadAtlasCollectionsBtn', 'atlasCollectionsProgress', 'atlasCollectionsProgressFill', 'atlasCollectionsProgressLabel', 'BUILDING', 'BUILT', async () => {
+  runExportButtonProgress('downloadAtlasCollectionsBtn', 'atlasCollectionsProgress', 'atlasCollectionsProgressFill', 'atlasCollectionsProgressLabel', 'RENDERING', 'RENDERED', async () => {
     try{
       await ensureImageFontsReady();
       const canvas = renderAtlasCollectionsCanvas(lastBuilt, lastStation, lastPlanDate);
@@ -2649,6 +2717,36 @@ document.getElementById('copyAtlasCollectionsTextBtn').onclick = (e) => {
   copyToClipboard(atlasCollectionsCaptionText(), e.currentTarget);
 };
 
+function openImagePreview(title, dataUrl){
+  document.getElementById('imagePreviewTitle').textContent = title;
+  document.getElementById('imagePreviewBody').innerHTML = `<img style="display:block; width:100%; height:auto;" src="${dataUrl}">`;
+  document.getElementById('imagePreviewModal').classList.add('open');
+}
+function openTablePreview(title, tableHtml){
+  document.getElementById('imagePreviewTitle').textContent = title;
+  document.getElementById('imagePreviewBody').innerHTML = tableHtml;
+  document.getElementById('imagePreviewModal').classList.add('open');
+}
+document.getElementById('closeImagePreviewBtn').onclick = () => {
+  document.getElementById('imagePreviewModal').classList.remove('open');
+  document.getElementById('imagePreviewBody').innerHTML = '';
+};
+
+document.getElementById('viewAtlasCollectionsBtn').onclick = () => {
+  if(!lastBuilt){ setExportStatus('error','Nothing to view yet.'); return; }
+  IMG_RED = selectedAccentHex;
+  runExportButtonProgress('viewAtlasCollectionsBtn', 'atlasCollectionsProgress', 'atlasCollectionsProgressFill', 'atlasCollectionsProgressLabel', 'RENDERING', 'RENDERED', async () => {
+    try{
+      await ensureImageFontsReady();
+      const canvas = renderAtlasCollectionsCanvas(lastBuilt, lastStation, lastPlanDate);
+      openImagePreview('Atlas & Collections', canvas.toDataURL('image/png'));
+    }catch(err){
+      console.error(err);
+      setExportStatus('error', 'Could not render the preview — see the browser console for details.');
+    }
+  });
+};
+
 function canvasToBlob(canvas){
   return new Promise(resolve => canvas.toBlob(resolve));
 }
@@ -2656,7 +2754,7 @@ function canvasToBlob(canvas){
 document.getElementById('downloadWavePlanBtn').onclick = () => {
   if(!lastBuilt){ setExportStatus('error','Nothing to export yet.'); return; }
   IMG_RED = selectedAccentHex;
-  runExportButtonProgress('downloadWavePlanBtn', 'wavePlanProgress', 'wavePlanProgressFill', 'wavePlanProgressLabel', 'BUILDING', 'BUILT', async () => {
+  runExportButtonProgress('downloadWavePlanBtn', 'wavePlanProgress', 'wavePlanProgressFill', 'wavePlanProgressLabel', 'RENDERING', 'RENDERED', async () => {
     try{
       await ensureImageFontsReady();
       const canvases = renderWavePlanCanvases(lastBuilt, lastStation, lastPlanDate);
@@ -2686,6 +2784,28 @@ document.getElementById('copyWavePlanTextBtn').onclick = (e) => {
   copyToClipboard(wavePlanCaptionText(), e.currentTarget);
 };
 
+document.getElementById('viewWavePlanBtn').onclick = () => {
+  if(!lastBuilt){ setExportStatus('error','Nothing to view yet.'); return; }
+  IMG_RED = selectedAccentHex;
+  runExportButtonProgress('viewWavePlanBtn', 'wavePlanProgress', 'wavePlanProgressFill', 'wavePlanProgressLabel', 'RENDERING', 'RENDERED', async () => {
+    try{
+      await ensureImageFontsReady();
+      const canvases = renderWavePlanCanvases(lastBuilt, lastStation, lastPlanDate);
+      const title = canvases.length > 1 ? `Wave Plan (page 1 of ${canvases.length})` : 'Wave Plan';
+      openImagePreview(title, canvases[0].toDataURL('image/png'));
+    }catch(err){
+      console.error(err);
+      setExportStatus('error', 'Could not render the preview — see the browser console for details.');
+    }
+  });
+};
+
+// Clicking this button sits right at the edge of the viewport in a lot of
+// window sizes, so letting the browser focus it on click was triggering an
+// automatic scroll-into-view — the "export options box moves down and up"
+// jump. The click still fires as normal; only the native focus (and the
+// scroll that comes with it) is suppressed.
+document.getElementById('applyReviewBtn').addEventListener('mousedown', (e) => e.preventDefault());
 document.getElementById('applyReviewBtn').onclick = () => {
   const rows = [...document.querySelectorAll('#reviewTableBody tr')];
   rows.forEach(tr => {
