@@ -1558,24 +1558,13 @@ function isBlankReviewRow(r){
 function computeIssues(built){
   const noVan = built.filter(r => !isBlankReviewRow(r) && (r.van==null || r.van==='')).map(r => [r.route, r.driver]);
   const noWave = built.filter(r => !isBlankReviewRow(r) && r.wave === 'WAVE ?').map(r => [r.route, r.driver]);
-  // Reverse check: a driver who has a van on today's roster but never turns
-  // up against any route in the built table — e.g. they were given a van
-  // but their route export is missing, or their name is spelled too
-  // differently for the fuzzy match to bridge. Skipped entirely in manual
-  // entry (no roster has been loaded) and once no roster is present at all.
-  let unmatchedRoster = [];
-  if(lastRoster && lastRoster.length){
-    const routeDrivers = built.filter(r => !isBlankReviewRow(r) && r.driver).map(r => ({driver: r.driver}));
-    unmatchedRoster = lastRoster.filter(entry => entry.driver && !matchVan(entry.driver, routeDrivers))
-      .map(entry => [entry.van, entry.driver]);
-  }
-  return {noVan, noWave, unmatchedRoster};
+  return {noVan, noWave};
 }
 
 function renderReviewErrors(issues){
   const el = document.getElementById('reviewErrors');
   const banner = document.getElementById('successBanner');
-  if(!issues.noVan.length && !issues.noWave.length && !issues.unmatchedRoster.length){
+  if(!issues.noVan.length && !issues.noWave.length){
     el.innerHTML = '';
     if(banner){
       banner.textContent = isManualEntryMode
@@ -1598,13 +1587,6 @@ function renderReviewErrors(issues){
     html += `<h3>${issues.noWave.length} route(s) with no matching wave/staging time</h3><ul>`;
     issues.noWave.forEach(([route,driver]) => {
       html += `<li>${(route||'').toString().replace(/^CA_/,'')} — ${driver}</li>`;
-    });
-    html += '</ul>';
-  }
-  if(issues.unmatchedRoster.length){
-    html += `<h3>${issues.unmatchedRoster.length} roster driver(s) with no matching route today</h3><ul>`;
-    issues.unmatchedRoster.forEach(([van,driver]) => {
-      html += `<li>Van ${van} — ${driver}</li>`;
     });
     html += '</ul>';
   }
@@ -1755,7 +1737,7 @@ function populateResultsPage(built, station, planDate){
   const vanCount = new Set(built.filter(r=>r.van!=null && r.van!=='').map(r=>r.van)).size;
   const atlasTotal = built.reduce((s,r)=>s+(r.high_value||0),0);
   const collTotal = built.reduce((s,r)=>s+(r.collection||0),0);
-  const errorCount = issues.noVan.length + issues.noWave.length + issues.unmatchedRoster.length;
+  const errorCount = issues.noVan.length + issues.noWave.length;
   document.getElementById('statRoutes').textContent = routeCount;
   document.getElementById('statRoutes').classList.add('stat-good');
   document.getElementById('statVans').textContent = vanCount;
