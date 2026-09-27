@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Poppins:wght@400;500;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 @font-face {
   font-family: "CharlesWrightBold";
@@ -113,7 +114,8 @@
   button{font-family:inherit; cursor:pointer;}
   .btn-primary{
     background:var(--red); color:#fff; border:none; padding:15px 22px; border-radius:7px;
-    font-weight:600; font-size:14.5px; letter-spacing:.2px;
+    font-weight:600; font-size:14.5px; letter-spacing:.2px; line-height:1;
+    display:inline-flex; align-items:center; justify-content:center;
   }
   .btn-primary:hover{background:var(--red-bright);}
   .btn-primary:disabled{background:var(--surface-2); color:var(--muted); cursor:not-allowed; opacity:0.7;}
@@ -130,8 +132,10 @@
   }
   /* VIEW buttons are always green, regardless of the accent colour picker —
      they open a preview, not a branded, colour-coded export. */
-  .export-view-btn{background:var(--green);}
-  .export-view-btn:hover{background:#3fc072;}
+  .export-view-btn{background:transparent; border:1.5px solid var(--accent-btn, var(--red)); color:var(--accent-btn, var(--red)); flex:1; padding:12px; border-radius:7px; font-weight:600; font-size:13px;}
+  .export-view-btn:hover{background:var(--accent-btn, var(--red)); color:#fff;}
+  .export-view-btn:disabled{opacity:.5; cursor:not-allowed; border-color:var(--border); color:var(--muted); background:transparent;}
+  .export-view-btn:disabled:hover{background:transparent;}
   .btn-generate{width:100%;}
   .btn-ghost{
     background:transparent; color:var(--muted); border:1px solid var(--border); padding:9px 16px;
@@ -196,7 +200,11 @@
   .conflict{border:1px solid #5c2222; background:#241111; border-radius:8px; padding:14px 16px; margin-bottom:10px;}
   .conflict h3{margin:0 0 8px 0; font-size:13px; color:#f28b82; font-weight:600;}
   .conflict select{width:100%; padding:8px; margin-top:6px; border-radius:4px; border:1px solid #5c2222; background:var(--surface-2); color:var(--text); font-family:inherit;}
-  .actions{margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;}
+  .actions{margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+  /* Apply Changes and Wave Schedule sit side by side and should always
+     match each other exactly — same fixed height/padding/font-size so
+     neither can ever grow, shrink, or drift out of sync with the other. */
+  .review-actions-btn{height:38px; padding:0 18px; font-size:12.5px; min-width:140px; box-sizing:border-box;}
 
   .result-card h2{margin-bottom:10px;}
   .result-card p{font-size:13px; color:var(--muted); line-height:1.5; margin:0 0 4px;}
@@ -232,18 +240,27 @@
   .flash-copied{background:var(--green) !important; color:#fff !important; border-color:var(--green) !important;}
   .export-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px;}
   @media (max-width:820px){ .export-grid{grid-template-columns:1fr;} }
-  .export-item{display:flex; flex-direction:column; gap:8px;}
-  .export-label{font-size:14.5px; font-weight:600; color:var(--text); text-align:center; font-family:inherit;}
   .export-btn{width:100%;}
-  .export-btn-row{display:flex; gap:8px;}
-  .export-btn-row .export-btn{width:auto; flex:1 1 auto;}
-  .export-view-btn{flex:0 0 108px; padding:15px 10px; font-size:13px; margin-top:0; border-radius:7px;}
-  .export-item .upload-progress{height:48px; border-radius:7px; margin-top:0;}
-  .export-item .upload-progress-label{font-size:13px;}
   .export-text-btn{width:100%; padding:9px 16px; font-size:12.5px;}
+  /* Icon tiles — the "Export Options" layout: one card per output, an
+     accent-coloured icon, a short description, Download/View side by
+     side, and a plain text link to copy the WhatsApp message. */
+  .export-tile{background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:22px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px;}
+  .export-tile-icon{width:52px; height:52px; flex:0 0 52px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:2px; background:var(--accent-btn, var(--red)); color:#fff;}
+  .export-tile-name{font-weight:700; font-size:15px; color:var(--text); font-family:inherit;}
+  .export-tile-desc{font-size:11.5px; color:var(--muted); line-height:1.5; margin:0 0 4px;}
+  .export-tile-btns{display:flex; gap:8px; width:100%;}
+  .export-tile .export-btn{flex:1; width:auto;}
+  .export-tile .upload-progress{width:100%; height:44px; border-radius:7px; margin-top:0;}
+  .export-tile .upload-progress-label{font-size:13px;}
+  .export-tile .export-text-btn{width:auto; background:none; border:none; text-decoration:underline; color:var(--muted); padding:4px; font-size:11.5px; margin-top:0;}
+  .export-tile .export-text-btn:hover{color:var(--text);}
+  /* Stack holding the "Copy WhatsApp message" and "Copy image" text
+     links, centred one above the other, when a tile offers both. */
+  .export-text-row{display:flex; flex-direction:column; align-items:center; gap:0;}
   .accent-picker{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:18px;}
-  .accent-picker .hint{margin-bottom:0; flex:1 1 320px;}
-  .accent-swatch-row{display:flex; gap:10px; margin-left:auto; flex-shrink:0;}
+  .accent-picker .hint{margin-bottom:0; margin-top:2px; flex:1 1 320px;}
+  .accent-swatch-row{display:flex; gap:10px; margin-left:auto; margin-top:-20px; flex-shrink:0;}
   .accent-swatch{width:30px; height:30px; border-radius:50%; border:2px solid transparent; box-shadow:0 0 0 1px var(--border); cursor:pointer; padding:0; transition:transform .1s, box-shadow .15s;}
   .accent-swatch:hover{transform:scale(1.08);}
   .accent-swatch.selected{border-color:var(--text); box-shadow:0 0 0 2px var(--surface), 0 0 0 4px currentColor;}
@@ -333,9 +350,24 @@
             <div class="upload-progress-fill" id="rosterProgressFill"></div>
             <span class="upload-progress-label" id="rosterProgressLabel">0%</span>
           </div>
-          <div style="display:none; flex-direction:column; gap:8px; margin-top:12px;" id="confirmListActions">
-            <button type="button" class="btn-primary export-btn" id="downloadConfirmListInlineBtn">SAME DAY ATTENDANCE</button>
-            <button type="button" class="btn-ghost export-text-btn" id="copyConfirmListTextBtn">COPY MESSAGE</button>
+          <div class="export-tile" style="display:none; margin-top:12px;" id="confirmListActions">
+            <div class="export-tile-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v3h6V3"/><path d="M9 13l2 2 4-4"/></svg>
+            </div>
+            <div class="export-tile-name">SAME DAY ATTENDANCE</div>
+            <div class="export-tile-desc">Confirmation list sent first</div>
+            <div class="export-tile-btns">
+              <button type="button" class="btn-primary export-btn" id="downloadConfirmListInlineBtn">DOWNLOAD</button>
+              <button type="button" class="export-view-btn" id="viewConfirmListBtn">VIEW</button>
+            </div>
+            <div class="upload-progress" id="confirmListProgress">
+              <div class="upload-progress-fill" id="confirmListProgressFill"></div>
+              <span class="upload-progress-label" id="confirmListProgressLabel">0%</span>
+            </div>
+            <div class="export-text-row">
+              <button type="button" class="export-text-btn" id="copyConfirmListTextBtn">COPY WHATSAPP MESSAGE</button>
+              <button type="button" class="export-text-btn" id="copyConfirmListImageBtn">COPY IMAGE</button>
+            </div>
           </div>
         </div>
 
@@ -424,6 +456,7 @@
         </div>
       </div>
 
+      <div class="status warn" id="preGenerateWarning" style="display:none; margin-bottom:12px;"></div>
       <button id="goBtn" class="btn-primary btn-generate">GENERATE</button>
 
       <div id="conflictCard" class="conflict-card">
@@ -515,54 +548,75 @@
       <div class="hint" style="text-align:right; margin-bottom:0;">Click any cell to edit it directly, then Apply changes to update the outputs below. Drag the table's bottom right corner to resize it.</div>
     </div>
     <div class="actions" style="justify-content:flex-end;">
-      <button type="button" class="btn-ghost" id="openWaveScheduleBtn" style="margin-top:0;">WAVE SCHEDULE</button>
-      <button type="button" class="btn-primary" id="applyReviewBtn" style="min-width:165px;">APPLY CHANGES</button>
+      <button type="button" class="btn-ghost review-actions-btn" id="openWaveScheduleBtn" style="margin-top:0;">WAVE SCHEDULE</button>
+      <button type="button" class="btn-primary review-actions-btn" id="applyReviewBtn">APPLY CHANGES</button>
     </div>
 
     <div class="panel" style="margin-top:24px;">
       <h2 style="margin-bottom:4px;">EXPORT OPTIONS</h2>
 
       <div class="accent-picker">
-        <div class="hint">Each output renders and downloads (or copies) on click, nothing is pre-built until you press it. The report accent colour applies to the PNGs below (and the Sameday Attendance list) once picked:</div>
+        <div class="hint">Pick an accent colour, then choose an output below:</div>
         <div class="accent-swatch-row" id="accentSwatchRow"></div>
       </div>
 
       <div class="export-grid">
-        <div class="export-item">
-          <div class="export-label">WAVE PLAN</div>
-          <div class="export-btn-row">
+        <div class="export-tile">
+          <div class="export-tile-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v3h6V3"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg>
+          </div>
+          <div class="export-tile-name">WAVE PLAN</div>
+          <div class="export-tile-desc">The full colour coded driver plan</div>
+          <div class="export-tile-btns">
             <button type="button" class="btn-primary export-btn" id="downloadWavePlanBtn">DOWNLOAD</button>
-            <button type="button" class="btn-primary export-view-btn" id="viewWavePlanBtn">VIEW</button>
+            <button type="button" class="export-view-btn" id="viewWavePlanBtn">VIEW</button>
           </div>
           <div class="upload-progress" id="wavePlanProgress">
             <div class="upload-progress-fill" id="wavePlanProgressFill"></div>
             <span class="upload-progress-label" id="wavePlanProgressLabel">0%</span>
           </div>
-          <button type="button" class="btn-ghost export-text-btn" id="copyWavePlanTextBtn">COPY MESSAGE</button>
+          <div class="export-text-row">
+            <button type="button" class="export-text-btn" id="copyWavePlanTextBtn">COPY WHATSAPP MESSAGE</button>
+            <button type="button" class="export-text-btn" id="copyWavePlanImageBtn">COPY IMAGE</button>
+          </div>
         </div>
-        <div class="export-item">
-          <div class="export-label">ATLAS &amp; COLLECTIONS</div>
-          <div class="export-btn-row">
+        <div class="export-tile">
+          <div class="export-tile-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5l-9-4.5-9 4.5 9 4.5 9-4.5z"/><path d="M3 7.5v9l9 4.5 9-4.5v-9"/><path d="M12 12v9"/></svg>
+          </div>
+          <div class="export-tile-name">ATLAS &amp; COLLECTIONS</div>
+          <div class="export-tile-desc">Internal management pickup report</div>
+          <div class="export-tile-btns">
             <button type="button" class="btn-primary export-btn" id="downloadAtlasCollectionsBtn">DOWNLOAD</button>
-            <button type="button" class="btn-primary export-view-btn" id="viewAtlasCollectionsBtn">VIEW</button>
+            <button type="button" class="export-view-btn" id="viewAtlasCollectionsBtn">VIEW</button>
           </div>
           <div class="upload-progress" id="atlasCollectionsProgress">
             <div class="upload-progress-fill" id="atlasCollectionsProgressFill"></div>
             <span class="upload-progress-label" id="atlasCollectionsProgressLabel">0%</span>
           </div>
-          <button type="button" class="btn-ghost export-text-btn" id="copyAtlasCollectionsTextBtn">COPY MESSAGE</button>
+          <div class="export-text-row">
+            <button type="button" class="export-text-btn" id="copyAtlasCollectionsTextBtn">COPY WHATSAPP MESSAGE</button>
+            <button type="button" class="export-text-btn" id="copyAtlasCollectionsImageBtn">COPY IMAGE</button>
+          </div>
         </div>
-        <div class="export-item">
-          <div class="export-label">WAVE PLAN BLUEPRINT</div>
-          <div class="export-btn-row">
+        <div class="export-tile">
+          <div class="export-tile-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M9 9.5V20"/></svg>
+          </div>
+          <div class="export-tile-name">WAVE PLAN BLUEPRINT</div>
+          <div class="export-tile-desc">Raw spreadsheet backup</div>
+          <div class="export-tile-btns">
             <button type="button" class="btn-primary export-btn" id="downloadWaveBlueprintBtn">DOWNLOAD</button>
-            <button type="button" class="btn-primary export-view-btn" id="viewWaveBlueprintBtn">VIEW</button>
+            <button type="button" class="export-view-btn" id="viewWaveBlueprintBtn">VIEW</button>
           </div>
           <div class="upload-progress" id="waveBlueprintProgress">
             <div class="upload-progress-fill" id="waveBlueprintProgressFill"></div>
             <span class="upload-progress-label" id="waveBlueprintProgressLabel">0%</span>
           </div>
-          <button type="button" class="btn-ghost export-text-btn" id="copyWaveBlueprintTextBtn">COPY MESSAGE</button>
+          <div class="export-text-row">
+            <button type="button" class="export-text-btn" id="copyWaveBlueprintTextBtn">COPY WHATSAPP MESSAGE</button>
+            <button type="button" class="export-text-btn" id="copyWaveBlueprintImageBtn">COPY IMAGE</button>
+          </div>
         </div>
       </div>
     </div>
@@ -860,21 +914,40 @@ function updateConfirmListButtonVisibility(){
   const rosterReady = document.getElementById('rosterPill').classList.contains('done');
   wrap.style.display = (rosterReady && !routesFile) ? 'flex' : 'none';
 }
-document.getElementById('downloadConfirmListInlineBtn').onclick = async () => {
+document.getElementById('downloadConfirmListInlineBtn').onclick = () => {
   if(!lastRoster) return;
   IMG_RED = selectedAccentHex;
-  const station = document.getElementById('stationCode').value.trim() || 'STATION';
-  const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
-  try{
-    await ensureImageFontsReady();
-    const names = buildPreListNames(lastRoster);
-    const canvas = renderPreListCanvas(names, station, planDate);
-    const blob = await canvasToBlob(canvas);
-    triggerDownload(blob, `${station}_SAMEDAY_ATTENDANCE_${dateForFilename(planDate)}.png`);
-  }catch(err){
-    console.error(err);
-    setExportStatus('error', 'Could not render the PNG — see the browser console for details.');
-  }
+  runExportButtonProgress('downloadConfirmListInlineBtn', 'confirmListProgress', 'confirmListProgressFill', 'confirmListProgressLabel', 'RENDERING', 'RENDERED', async () => {
+    const station = document.getElementById('stationCode').value.trim() || 'STATION';
+    const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
+    try{
+      await ensureImageFontsReady();
+      const names = buildPreListNames(lastRoster);
+      const canvas = renderPreListCanvas(names, station, planDate);
+      const blob = await canvasToBlob(canvas);
+      triggerDownload(blob, `${station}_SAMEDAY_ATTENDANCE_${dateForFilename(planDate)}.png`);
+    }catch(err){
+      console.error(err);
+      setExportStatus('error', 'Could not render the PNG — see the browser console for details.');
+    }
+  });
+};
+document.getElementById('viewConfirmListBtn').onclick = () => {
+  if(!lastRoster) return;
+  IMG_RED = selectedAccentHex;
+  runExportButtonProgress('viewConfirmListBtn', 'confirmListProgress', 'confirmListProgressFill', 'confirmListProgressLabel', 'RENDERING', 'RENDERED', async () => {
+    const station = document.getElementById('stationCode').value.trim() || 'STATION';
+    const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
+    try{
+      await ensureImageFontsReady();
+      const names = buildPreListNames(lastRoster);
+      const canvas = renderPreListCanvas(names, station, planDate);
+      openImagePreview('Same Day Attendance', canvas.toDataURL('image/png'));
+    }catch(err){
+      console.error(err);
+      setExportStatus('error', 'Could not render the preview — see the browser console for details.');
+    }
+  });
 };
 // Draft wording, same as the other two captions — adjust once there's a
 // real sense of what your team wants to paste alongside this one.
@@ -888,11 +961,28 @@ document.getElementById('copyConfirmListTextBtn').onclick = (e) => {
   if(!lastRoster) return;
   copyToClipboard(confirmListCaptionText(), e.currentTarget);
 };
+document.getElementById('copyConfirmListImageBtn').onclick = async (e) => {
+  if(!lastRoster) return;
+  const btn = e.currentTarget;
+  IMG_RED = selectedAccentHex;
+  try{
+    await ensureImageFontsReady();
+    const station = document.getElementById('stationCode').value.trim() || 'STATION';
+    const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
+    const names = buildPreListNames(lastRoster);
+    const canvas = renderPreListCanvas(names, station, planDate);
+    const blob = await canvasToBlob(canvas);
+    copyImageToClipboard(blob, btn);
+  }catch(err){
+    console.error(err);
+    copyImageToClipboard(null, btn); // no blob to copy — flashes COPY FAILED
+  }
+};
 
 document.getElementById('rosterFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   updateGenerateButtonState();
-  if(!file){ setPill('rosterPill', false, 'EMPTY'); lastRoster = null; updateStepper(); updateConfirmListButtonVisibility(); return; }
+  if(!file){ setPill('rosterPill', false, 'EMPTY'); lastRoster = null; updateStepper(); updateConfirmListButtonVisibility(); updatePreGenerateValidation(); return; }
   let roster = null, parseError = false;
   try{
     roster = await parseVanRoster(file);
@@ -950,6 +1040,7 @@ document.getElementById('rosterFile').addEventListener('change', async (e) => {
     // would stretch them to match it, undoing that.
     updateConfirmListButtonVisibility();
     updateGenerateButtonState();
+    updatePreGenerateValidation();
   });
 });
 
@@ -1182,6 +1273,31 @@ function matchVan(driverName, roster){
   return best;
 }
 
+// Runs the same van-matching check Generate uses, but the moment both the
+// roster and the Routes file have landed — so a driver with no van match
+// is flagged straight away rather than only surfacing after Generate,
+// buried inside the review table.
+let lastRoutesRows = null;
+function updatePreGenerateValidation(){
+  const el = document.getElementById('preGenerateWarning');
+  if(!el) return;
+  if(!lastRoster || !lastRoutesRows || !lastRoutesRows.length){
+    el.style.display = 'none';
+    return;
+  }
+  const noVan = [];
+  for(const row of lastRoutesRows){
+    if(!matchVan(row.driver, lastRoster)) noVan.push(row.driver);
+  }
+  if(noVan.length){
+    const names = [...new Set(noVan)];
+    el.textContent = `${names.length} driver(s) have no van match: ${names.join(', ')} — check the roster before generating.`;
+    el.style.display = 'block';
+  }else{
+    el.style.display = 'none';
+  }
+}
+
 /* ---------- wave label matching (ports find_wave_label) ---------- */
 function findWaveLabel(stagingMinutes, offsetMinutes=15){
   if(stagingMinutes==null) return [null,null];
@@ -1194,54 +1310,60 @@ function findWaveLabel(stagingMinutes, offsetMinutes=15){
 
 /* ---------- main pipeline ---------- */
 async function runPipeline(driverOverrides={}, droppedRoutes=new Set()){
-  setStatus('info','Reading files…');
+  try{
+    setStatus('info','Reading files…');
 
-  const rosterFile = document.getElementById('rosterFile').files[0];
-  const routesFile = document.getElementById('routesFile').files[0];
-  const station = document.getElementById('stationCode').value.trim() || 'STATION';
-  const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
+    const rosterFile = document.getElementById('rosterFile').files[0];
+    const routesFile = document.getElementById('routesFile').files[0];
+    const station = document.getElementById('stationCode').value.trim() || 'STATION';
+    const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
 
-  if(!rosterFile){
-    setStatus('error','Upload the van roster file first.');
-    return;
+    if(!rosterFile){
+      setStatus('error','Upload the van roster file first.');
+      return;
+    }
+    const roster = await parseVanRoster(rosterFile);
+    lastRoster = roster;
+    log(`Roster: ${roster.length} drivers`);
+
+    if(!routesFile){
+      // Shouldn't be reachable — Generate is disabled until a Routes file is
+      // present. Use the "Download confirmation list" button under Van
+      // Roster for a pre-list-only download instead.
+      setStatus('error','Upload a Routes file to generate, or use the confirmation list button under Van Roster for the pre-list alone.');
+      return;
+    }
+
+    const wpText = document.getElementById('wpText').value;
+    const hcText = document.getElementById('hcText').value;
+    const hvText = document.getElementById('hvText').value;
+
+    const {staging, stagingTimes} = parseStagingText(wpText);
+    const atlasCounts = parseAtlasText(hvText);
+    const collectionCounts = parseHomeCollectionsText(hcText);
+    log(`Staging lines matched: ${Object.keys(staging).length}`);
+    log(`High-value routes: ${Object.keys(atlasCounts).length}`);
+    log(`Collection routes: ${Object.keys(collectionCounts).length}`);
+
+    const rawRows = await parseRoutes(routesFile);
+    log(`Routes rows: ${rawRows.length}`);
+
+    const conflicts = detectConflicts(rawRows, driverOverrides, droppedRoutes);
+    if(conflicts.length){
+      log(`CONFLICTS_DETECTED: ${conflicts.length}`);
+      showConflicts(conflicts, {rawRows, roster, staging, stagingTimes, atlasCounts, collectionCounts, station, planDate});
+      setStatus('warn', `${conflicts.length} conflict(s) need resolving before output can be generated — see below.`);
+      return;
+    }
+    document.getElementById('conflictCard').style.display = 'none';
+
+    const rows = applyConflictResolutions(rawRows, driverOverrides, droppedRoutes);
+    buildOutput(rows, roster, staging, stagingTimes, atlasCounts, collectionCounts, station, planDate);
+    setStatus('', '');
+  }catch(err){
+    console.error(err);
+    setStatus('error', 'Something went wrong reading those files — double check the Routes export and Wave Plan text are in the expected format, then try again.');
   }
-  const roster = await parseVanRoster(rosterFile);
-  lastRoster = roster;
-  log(`Roster: ${roster.length} drivers`);
-
-  if(!routesFile){
-    // Shouldn't be reachable — Generate is disabled until a Routes file is
-    // present. Use the "Download confirmation list" button under Van
-    // Roster for a pre-list-only download instead.
-    setStatus('error','Upload a Routes file to generate, or use the confirmation list button under Van Roster for the pre-list alone.');
-    return;
-  }
-
-  const wpText = document.getElementById('wpText').value;
-  const hcText = document.getElementById('hcText').value;
-  const hvText = document.getElementById('hvText').value;
-
-  const {staging, stagingTimes} = parseStagingText(wpText);
-  const atlasCounts = parseAtlasText(hvText);
-  const collectionCounts = parseHomeCollectionsText(hcText);
-  log(`Staging lines matched: ${Object.keys(staging).length}`);
-  log(`High-value routes: ${Object.keys(atlasCounts).length}`);
-  log(`Collection routes: ${Object.keys(collectionCounts).length}`);
-
-  const rawRows = await parseRoutes(routesFile);
-  log(`Routes rows: ${rawRows.length}`);
-
-  const conflicts = detectConflicts(rawRows, driverOverrides, droppedRoutes);
-  if(conflicts.length){
-    log(`CONFLICTS_DETECTED: ${conflicts.length}`);
-    showConflicts(conflicts, {rawRows, roster, staging, stagingTimes, atlasCounts, collectionCounts, station, planDate});
-    setStatus('warn', `${conflicts.length} conflict(s) need resolving before output can be generated — see below.`);
-    return;
-  }
-  document.getElementById('conflictCard').style.display = 'none';
-
-  const rows = applyConflictResolutions(rawRows, driverOverrides, droppedRoutes);
-  buildOutput(rows, roster, staging, stagingTimes, atlasCounts, collectionCounts, station, planDate);
 }
 
 function showConflicts(conflicts, ctx){
@@ -1447,12 +1569,7 @@ function populateResultsPage(built, station, planDate){
 }
 
 /* ---------- export options: render-on-click outputs + clipboard text ---------- */
-function setExportStatus(kind, msg){
-  const el = document.getElementById('exportStatus');
-  if(!el) return;
-  el.className = kind ? ('status ' + kind) : 'status';
-  el.textContent = msg || '';
-}
+function setExportStatus(){} // export status strip removed — kept as a no-op so existing call sites stay harmless
 function triggerDownload(blob, filename){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1480,6 +1597,57 @@ function copyToClipboard(text, btn){
     setTimeout(() => { btn.textContent = original; btn.classList.remove('flash-copied'); }, 1200);
   }).catch(() => {
     setExportStatus('error', 'Could not copy to clipboard — your browser may be blocking it.');
+  });
+}
+// Copies a rendered PNG straight onto the system clipboard so it can be
+// pasted directly into WhatsApp Web (or anywhere else) without saving the
+// file first, dragging it in, then deleting it. Same button-flash feedback
+// as the WhatsApp-text copy buttons above, just for an image.
+function copyImageToClipboard(blob, btn){
+  const original = btn.textContent;
+  function flash(text, ms){
+    btn.classList.add('flash-copied');
+    btn.textContent = text;
+    setTimeout(() => { btn.textContent = original; btn.classList.remove('flash-copied'); }, ms);
+  }
+  if(!blob){
+    flash('COPY FAILED', 1500);
+    return;
+  }
+  if(!navigator.clipboard || !window.ClipboardItem){
+    flash('NOT SUPPORTED', 1500);
+    return;
+  }
+  navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]).then(() => {
+    flash('COPIED!', 1200);
+  }).catch(err => {
+    console.error(err);
+    flash('COPY FAILED', 1500);
+  });
+}
+// Rasterizes a chunk of self-contained HTML (inline styles only — no
+// external stylesheet) into a canvas, so the Blueprint's table VIEW —
+// which has no PNG of its own — can still be copied as an image, matching
+// exactly what VIEW shows. Renders it off-screen, then hands it to
+// html2canvas (an SVG+foreignObject snapshot taints the canvas in Chrome
+// and blocks the copy entirely, so this avoids that route).
+function domHtmlToCanvas(html, width){
+  return new Promise((resolve, reject) => {
+    if(typeof html2canvas !== 'function'){
+      reject(new Error('html2canvas failed to load — check your connection and try again.'));
+      return;
+    }
+    const probe = document.createElement('div');
+    probe.style.cssText = `position:fixed; left:-99999px; top:0; width:${width}px; background:#fff;`;
+    probe.innerHTML = html;
+    document.body.appendChild(probe);
+    html2canvas(probe, {backgroundColor: '#ffffff', scale: 2, width, windowWidth: width}).then(canvas => {
+      document.body.removeChild(probe);
+      resolve(canvas);
+    }).catch(err => {
+      document.body.removeChild(probe);
+      reject(err);
+    });
   });
 }
 
@@ -1559,23 +1727,20 @@ function imgLightTint(hex, amount = 0.88){
   return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
 }
 
-// Every DOWNLOAD button follows the selected accent (Wave Blueprint's own
-// .xlsx has no colour in it, but the button still matches for consistency).
-// Recolouring these on selection is just a live confirmation of which
-// accent is currently active; VIEW buttons stay green regardless.
-const ACCENT_BUTTON_IDS = ['downloadWavePlanBtn', 'downloadAtlasCollectionsBtn', 'downloadWaveBlueprintBtn', 'downloadConfirmListInlineBtn'];
+// Every DOWNLOAD button (and each export tile's icon) follows the selected
+// accent (Wave Blueprint's own .xlsx has no colour in it, but it still
+// matches for consistency). VIEW buttons stay green regardless.
 function accentButtonHoverShade(hex){
   const { r, g, b } = imgHexToRgb(hex);
   const mix = (c) => Math.round(c + (255 - c) * 0.18);
   return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
 }
 function applyAccentToButtons(hex){
-  ACCENT_BUTTON_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if(!el) return;
-    el.style.setProperty('--accent-btn', hex);
-    el.style.setProperty('--accent-btn-hover', accentButtonHoverShade(hex));
-  });
+  // Set once on the root element so it inherits everywhere — the download
+  // buttons (matched by ID) and the export tile icons (matched by class)
+  // both just reference var(--accent-btn, var(--red)) in CSS.
+  document.documentElement.style.setProperty('--accent-btn', hex);
+  document.documentElement.style.setProperty('--accent-btn-hover', accentButtonHoverShade(hex));
 }
 
 function initAccentPicker(){
@@ -2282,9 +2447,9 @@ function imgDrawTicketHeader(ctx, x0, x1, y, stationCode, titleRest, taglineTxt,
   imgDrawTextAt(ctx, x0, y, stationCode, titleF, IMG_RED);
   imgDrawTextAt(ctx, x0 + stationW + IS(14), y, titleRest, titleF, IMG_TEXT_DARK);
 
-  const dateF = pf('bold', 14);
+  const dateF = pf('bold', 32);
   const dateW = imgTextW(ctx, dateSuffix, dateF);
-  const datePillW = dateW + IS(28), datePillH = IS(34);
+  const datePillW = dateW + IS(63), datePillH = IS(77);
   imgRoundRect(ctx, x1 - datePillW, y + IS(4), x1, y + IS(4) + datePillH, IS(7));
   ctx.fillStyle = IMG_BLACK; ctx.fill();
   imgDrawCellText(ctx, x1 - datePillW / 2, y + IS(4), datePillH, dateSuffix, dateF, IMG_WHITE);
@@ -2292,9 +2457,9 @@ function imgDrawTicketHeader(ctx, x0, x1, y, stationCode, titleRest, taglineTxt,
   // Multi-image Wave Plan only: a small "N/M" page badge under the date
   // pill, right-aligned to match it.
   if(pageLabel){
-    const pageF = pf('bold', 13);
+    const pageF = pf('bold', 20);
     const pageW = imgTextW(ctx, pageLabel, pageF);
-    const pagePillW = pageW + IS(20), pagePillH = IS(26);
+    const pagePillW = pageW + IS(30), pagePillH = IS(39);
     const pageY = y + IS(4) + datePillH + IS(8);
     imgRoundRect(ctx, x1 - pagePillW, pageY, x1, pageY + pagePillH, IS(7));
     ctx.fillStyle = IMG_RED; ctx.fill();
@@ -2624,29 +2789,25 @@ function runExportButtonProgress(btnId, containerId, fillId, labelId, verbProgre
   if(fill) fill.style.width = '0%';
   if(label) label.textContent = verbProgress + ' 0%';
 
-  // The real render/export work now starts immediately (below) instead of
-  // waiting behind a fixed-length fake animation first — that's what used
-  // to make the gap between clicking and the download actually starting
-  // feel long. This still keeps the bar moving the whole time so it never
-  // looks like nothing's happening: it eases up towards 90% for as long as
-  // the work takes, then jumps straight to 100% the moment it's actually
-  // done, so the total wait is only ever as long as the real work itself.
-  let done = false;
+  // The bar always runs for the same fixed length of time before the
+  // actual download/preview is triggered — so every DOWNLOAD/VIEW action
+  // feels identical and uniform, and nothing appears until the bar
+  // has visibly finished filling.
+  const DURATION = 1000;
   const start = performance.now();
   function frame(now){
-    if(done) return;
     const elapsed = now - start;
-    const pct = Math.min(90, Math.round(90 * (1 - Math.exp(-elapsed / 350))));
+    const pct = Math.min(100, Math.round(100 * (elapsed / DURATION)));
     if(fill) fill.style.width = pct + '%';
     if(label) label.textContent = verbProgress + ' ' + pct + '%';
-    requestAnimationFrame(frame);
+    if(pct < 100) requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 
-  Promise.resolve().then(() => (typeof afterFill === 'function' ? afterFill() : null))
+  new Promise(resolve => setTimeout(resolve, DURATION))
+    .then(() => (typeof afterFill === 'function' ? afterFill() : null))
     .catch(err => console.error(err))
     .then(() => {
-      done = true;
       if(fill) fill.style.width = '100%';
       if(label) label.textContent = verbDone + ' 100%';
       setTimeout(() => {
@@ -2666,6 +2827,19 @@ document.getElementById('downloadWaveBlueprintBtn').onclick = () => {
 };
 document.getElementById('copyWaveBlueprintTextBtn').onclick = (e) => {
   copyToClipboard(waveBlueprintCaptionText(), e.currentTarget);
+};
+document.getElementById('copyWaveBlueprintImageBtn').onclick = async (e) => {
+  if(!lastBuilt) return;
+  const btn = e.currentTarget;
+  let blob = null;
+  try{
+    const html = buildXlsxPreviewHtml(lastBuilt, lastStation, lastPlanDate);
+    const canvas = await domHtmlToCanvas(html, 1100);
+    blob = await canvasToBlob(canvas);
+  }catch(err){
+    console.error(err);
+  }
+  copyImageToClipboard(blob, btn);
 };
 
 // Read-only HTML rendering of the exact same rows that go into the .xlsx —
@@ -2715,6 +2889,20 @@ document.getElementById('downloadAtlasCollectionsBtn').onclick = () => {
 document.getElementById('copyAtlasCollectionsTextBtn').onclick = (e) => {
   if(!lastBuilt){ setExportStatus('error','Nothing to generate a message for yet.'); return; }
   copyToClipboard(atlasCollectionsCaptionText(), e.currentTarget);
+};
+document.getElementById('copyAtlasCollectionsImageBtn').onclick = async (e) => {
+  if(!lastBuilt) return;
+  const btn = e.currentTarget;
+  IMG_RED = selectedAccentHex;
+  let blob = null;
+  try{
+    await ensureImageFontsReady();
+    const canvas = renderAtlasCollectionsCanvas(lastBuilt, lastStation, lastPlanDate);
+    blob = await canvasToBlob(canvas);
+  }catch(err){
+    console.error(err);
+  }
+  copyImageToClipboard(blob, btn);
 };
 
 function openImagePreview(title, dataUrl){
@@ -2782,6 +2970,22 @@ document.getElementById('downloadWavePlanBtn').onclick = () => {
 document.getElementById('copyWavePlanTextBtn').onclick = (e) => {
   if(!lastBuilt){ setExportStatus('error','Nothing to generate a message for yet.'); return; }
   copyToClipboard(wavePlanCaptionText(), e.currentTarget);
+};
+document.getElementById('copyWavePlanImageBtn').onclick = async (e) => {
+  if(!lastBuilt) return;
+  const btn = e.currentTarget;
+  IMG_RED = selectedAccentHex;
+  let blob = null;
+  try{
+    await ensureImageFontsReady();
+    // Multi-page Wave Plans only copy the first page — same as VIEW —
+    // since the clipboard is only ever pasting one image at a time.
+    const canvases = renderWavePlanCanvases(lastBuilt, lastStation, lastPlanDate);
+    blob = await canvasToBlob(canvases[0]);
+  }catch(err){
+    console.error(err);
+  }
+  copyImageToClipboard(blob, btn);
 };
 
 document.getElementById('viewWavePlanBtn').onclick = () => {
@@ -3063,7 +3267,7 @@ document.getElementById('routesFile').addEventListener('click', () => {
 document.getElementById('routesFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   updateGenerateButtonState();
-  if(!file){ setPill('routesPill', false, 'EMPTY'); refreshDetailsStatus(); updateConfirmListButtonVisibility(); return; }
+  if(!file){ setPill('routesPill', false, 'EMPTY'); refreshDetailsStatus(); updateConfirmListButtonVisibility(); lastRoutesRows = null; updatePreGenerateValidation(); return; }
   updateConfirmListButtonVisibility(); // hiding the confirm-list button stays instant, not gated
 
   let rows = null, parseError = false;
@@ -3086,9 +3290,12 @@ document.getElementById('routesFile').addEventListener('change', async (e) => {
   runUploadProgress('routesProgress', 'routesProgressFill', 'routesProgressLabel', 'UPLOADING', 'UPLOADED', 1500, () => {
     if(parseError){
       setPill('routesPill', false, 'ERROR');
+      lastRoutesRows = null;
     }else{
       setPill('routesPill', true, `${rows.length} ROUTES`);
+      lastRoutesRows = rows;
     }
+    updatePreGenerateValidation();
     updateStepper();
     syncTrioRowHeights(); // routes' own bar just appeared
 
