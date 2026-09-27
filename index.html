@@ -120,6 +120,24 @@
   .btn-primary:hover{background:var(--red-bright);}
   .btn-primary:disabled{background:var(--surface-2); color:var(--muted); cursor:not-allowed; opacity:0.7;}
   .btn-primary:disabled:hover{background:var(--surface-2);}
+  /* Build Wave Plan By Hand — sits next to Generate but stays visually
+     secondary at rest (it's the fallback/manual path, not the main action),
+     and only shows the same red as Generate while actively being clicked. */
+  .btn-manual-entry{
+    background:var(--surface-2); color:var(--muted); border:none; padding:15px 22px; border-radius:7px;
+    font-weight:600; font-size:14.5px; letter-spacing:.2px; line-height:1; opacity:0.7;
+    display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .btn-manual-entry:hover{opacity:1;}
+  .btn-manual-entry:active{background:var(--red); color:#fff; opacity:1;}
+  /* Generate, before any files are uploaded — with nothing to generate from,
+     a click just falls through to build-by-hand (see updateGenerateButtonState /
+     goBtn's onclick), so it shouldn't look like the primary red action yet.
+     It matches Build Wave Plan By Hand's off/rest look and only flashes red
+     while actually being clicked. */
+  .btn-primary.btn-empty-state{background:var(--surface-2); color:var(--muted); opacity:0.7;}
+  .btn-primary.btn-empty-state:hover{background:var(--surface-2); opacity:1;}
+  .btn-primary.btn-empty-state:active{background:var(--red); color:#fff; opacity:1;}
   /* Confirms which report accent colour is currently selected — every
      DOWNLOAD button follows it. JS sets --accent-btn/--accent-btn-hover on
      these elements; until it does, they fall back to the site's normal
@@ -237,6 +255,11 @@
   .stat-value.stat-good{color:#5fd48a;}
   .stat-value.stat-bad{color:#f28b82;}
   .success-banner{background:#123420; color:#5fd48a; border:1px solid #1f5c37; border-radius:6px; padding:14px 18px; font-weight:700; font-size:13.5px; text-align:center; margin-bottom:18px; letter-spacing:.03em;}
+  .review-search-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .review-search-input{flex:1; max-width:360px; height:36px; padding:0 12px; border-radius:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px;}
+  .review-search-input:focus{outline:1.5px solid var(--red); outline-offset:-1px;}
+  .review-search-input::placeholder{color:var(--muted);}
+  .review-service-cell{color:var(--muted); font-size:12px; font-style:italic; white-space:nowrap;}
   .flash-copied{background:var(--green) !important; color:#fff !important; border-color:var(--green) !important;}
   .export-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px;}
   @media (max-width:820px){ .export-grid{grid-template-columns:1fr;} }
@@ -257,13 +280,26 @@
   .export-tile .export-text-btn:hover{color:var(--text);}
   /* Stack holding the "Copy WhatsApp message" and "Copy image" text
      links, centred one above the other, when a tile offers both. */
-  .export-text-row{display:flex; flex-direction:column; align-items:center; gap:0;}
-  .accent-picker{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:18px;}
-  .accent-picker .hint{margin-bottom:0; margin-top:2px; flex:1 1 320px;}
-  .accent-swatch-row{display:flex; gap:10px; margin-left:auto; margin-top:-20px; flex-shrink:0;}
-  .accent-swatch{width:30px; height:30px; border-radius:50%; border:2px solid transparent; box-shadow:0 0 0 1px var(--border); cursor:pointer; padding:0; transition:transform .1s, box-shadow .15s;}
-  .accent-swatch:hover{transform:scale(1.08);}
-  .accent-swatch.selected{border-color:var(--text); box-shadow:0 0 0 2px var(--surface), 0 0 0 4px currentColor;}
+  .export-text-row{display:flex; flex-direction:row; align-items:center; justify-content:center; gap:6px;}
+  .export-text-row .export-text-sep{color:var(--muted); font-size:11.5px;}
+  .accent-picker{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); margin-bottom:18px;}
+  .accent-theme-left{display:flex; align-items:center; gap:12px;}
+  .accent-theme-label{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.08em; color:var(--muted); text-transform:uppercase;}
+  .accent-theme-chip{display:flex; align-items:center; gap:8px; padding:6px 12px 6px 8px; border-radius:20px; background:var(--surface-3, #2c2c2c); border:1px solid var(--border);}
+  .accent-theme-chip-sw{width:14px; height:14px; border-radius:50%; flex-shrink:0;}
+  .accent-theme-chip span:last-child{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text); letter-spacing:.03em; text-transform:uppercase;}
+  .accent-picker-hint{font-size:11.5px; color:var(--muted); letter-spacing:.02em;}
+  /* One continuous strip — segments sit flush against each other with no
+     gaps, so the whole row reads as a single fused "theme strip" control
+     rather than 15 separate loose buttons. The rounded ends come from the
+     container's radius + overflow:hidden, not from each segment. */
+  .accent-theme-dots{display:flex; gap:0; border:1px solid var(--border); border-radius:9px; overflow:hidden; flex-shrink:0;}
+  .accent-theme-dot{width:44px; height:30px; border:none; padding:0; cursor:pointer; flex-shrink:0; position:relative; transition:opacity .1s;}
+  .accent-theme-dot:hover{opacity:.82;}
+  .accent-theme-dot.selected::after{
+    content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:12px; font-weight:700; text-shadow:0 1px 2px rgba(0,0,0,.6);
+  }
   table.review-table{border-collapse:collapse; width:100%; font-size:12.5px; font-family:'IBM Plex Mono',monospace;}
   table.review-table th, table.review-table td{border:1px solid var(--border); padding:9px 10px; text-align:center; white-space:nowrap;}
   table.review-table th{background:var(--surface-2); color:var(--muted); font-weight:500; position:sticky; top:0; z-index:1;}
@@ -271,6 +307,13 @@
   table.review-table td[contenteditable="true"]:focus{outline:1.5px solid #fff; outline-offset:-2px; background:var(--surface-2);}
   table.review-table tr:nth-child(even) td{background:var(--surface-2);}
   table.review-table tr.row-error td{background:rgba(204,0,0,.16); color:#f8b4b4;}
+  table.review-table td.row-actions-cell{padding:4px; white-space:nowrap;}
+  .row-del-btn{
+    width:22px; height:22px; border-radius:5px; border:1px solid var(--border); background:none;
+    color:var(--muted); font-size:12px; line-height:1; cursor:pointer; padding:0;
+  }
+  .row-del-btn:hover{background:rgba(204,0,0,.22); border-color:#cc0000; color:#f8b4b4;}
+  #addRowBtn{margin-right:auto;}
   .review-errors{border:1px solid #5c2222; background:#241111; border-radius:7px; padding:16px 18px; margin-bottom:18px; box-sizing:border-box; height:140px; min-height:70px; resize:vertical; overflow:auto; overflow-anchor:none;}
   .review-errors h3{margin:0 0 10px; font-size:13.5px; color:#f28b82; font-weight:600; text-transform:uppercase;}
   .review-errors ul{margin:0; padding-left:18px; font-size:12.5px; color:#f2b8b8; line-height:1.7;}
@@ -343,7 +386,7 @@
             </div>
             <div>
               <div class="dz-text">DROP TODAY'S VAN ROSTER HERE</div>
-              <div class="dz-hint mono">.XLSX</div>
+              <div class="dz-hint mono">.CSV OR .XLSX</div>
             </div>
           </div>
           <div class="upload-progress" id="rosterProgress">
@@ -365,7 +408,8 @@
               <span class="upload-progress-label" id="confirmListProgressLabel">0%</span>
             </div>
             <div class="export-text-row">
-              <button type="button" class="export-text-btn" id="copyConfirmListTextBtn">COPY WHATSAPP MESSAGE</button>
+              <button type="button" class="export-text-btn" id="copyConfirmListTextBtn">COPY MESSAGE</button>
+              <span class="export-text-sep">-</span>
               <button type="button" class="export-text-btn" id="copyConfirmListImageBtn">COPY IMAGE</button>
             </div>
           </div>
@@ -457,7 +501,10 @@
       </div>
 
       <div class="status warn" id="preGenerateWarning" style="display:none; margin-bottom:12px;"></div>
-      <button id="goBtn" class="btn-primary btn-generate">GENERATE</button>
+      <div style="display:flex; gap:18px;">
+        <button type="button" id="manualEntryBtn" class="btn-manual-entry" style="flex:1;">BUILD WAVE PLAN BY HAND</button>
+        <button id="goBtn" class="btn-primary" style="flex:1;">GENERATE</button>
+      </div>
 
       <div id="conflictCard" class="conflict-card">
         <h2>Conflicts need resolving</h2>
@@ -535,29 +582,46 @@
     <div id="successBanner" class="success-banner" style="display:none;">✓ ALL ROUTES MATCHED — NO ERRORS DETECTED</div>
     <div id="reviewErrors"></div>
 
+    <div class="review-search-row">
+      <input type="text" id="reviewSearchInput" class="review-search-input" placeholder="Search anything — route, wave, driver, van, reg, service…" autocomplete="off">
+      <span class="hint mono" id="reviewSearchCount"></span>
+    </div>
+
     <div class="review-table-wrap" id="reviewTableWrap">
       <table class="review-table" id="reviewTable">
         <thead>
-          <tr><th>ROUTE</th><th>STAGE</th><th>WAVE</th><th>QUEUE</th><th>NAME</th><th>VAN</th><th>REGISTRATION</th><th>ATLAS</th><th>COLLECTION</th><th>ARRIVAL</th></tr>
+          <tr><th>ROUTE</th><th>STAGE</th><th>SERVICE</th><th>WAVE</th><th>QUEUE</th><th>NAME</th><th>VAN</th><th>REGISTRATION</th><th>ATLAS</th><th>COLLECTION</th><th>ARRIVAL</th><th></th></tr>
         </thead>
         <tbody id="reviewTableBody"></tbody>
       </table>
     </div>
-    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:10px; gap:24px;">
+    <div style="margin-top:10px;">
       <div class="hint mono" id="reviewMeta" style="margin-bottom:0;"></div>
-      <div class="hint" style="text-align:right; margin-bottom:0;">Click any cell to edit it directly, then Apply changes to update the outputs below. Drag the table's bottom right corner to resize it.</div>
     </div>
-    <div class="actions" style="justify-content:flex-end;">
-      <button type="button" class="btn-ghost review-actions-btn" id="openWaveScheduleBtn" style="margin-top:0;">WAVE SCHEDULE</button>
-      <button type="button" class="btn-primary review-actions-btn" id="applyReviewBtn">APPLY CHANGES</button>
+    <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:90px; margin-bottom:22px;">
+      <div class="actions" style="flex-direction:column; justify-content:center; align-items:center; gap:8px; margin-top:-16px;">
+        <div style="display:flex; justify-content:center; align-items:center; gap:10px; flex-wrap:wrap;">
+          <button type="button" class="btn-ghost review-actions-btn" id="addRowBtn" style="margin-top:0;">+ ADD ROW</button>
+          <button type="button" class="btn-primary review-actions-btn" id="applyReviewBtn">APPLY CHANGES</button>
+          <button type="button" class="btn-ghost review-actions-btn" id="openWaveScheduleBtn" style="margin-top:0;">WAVE SCHEDULE</button>
+        </div>
+        <div class="hint" style="text-align:center; margin-bottom:0; text-transform:uppercase;">CLICK ANY CELL TO EDIT IT DIRECTLY, THEN APPLY CHANGES TO UPDATE THE OUTPUTS BELOW. DRAG THE TABLE'S BOTTOM RIGHT CORNER TO RESIZE IT.</div>
+      </div>
     </div>
 
-    <div class="panel" style="margin-top:24px;">
-      <h2 style="margin-bottom:4px;">EXPORT OPTIONS</h2>
+    <div class="panel" style="margin-top:0;">
+      <h2 style="margin-bottom:18px;">EXPORT OPTIONS</h2>
 
       <div class="accent-picker">
-        <div class="hint">Pick an accent colour, then choose an output below:</div>
-        <div class="accent-swatch-row" id="accentSwatchRow"></div>
+        <div class="accent-theme-left">
+          <span class="accent-theme-label">THEME</span>
+          <div class="accent-theme-chip" id="accentThemeChip">
+            <span class="accent-theme-chip-sw" id="accentThemeChipSw"></span>
+            <span id="accentThemeChipName"></span>
+          </div>
+          <span class="accent-picker-hint">PICK AN ACCENT COLOUR, THEN CHOOSE AN OUTPUT BELOW:</span>
+        </div>
+        <div class="accent-theme-dots" id="accentThemeDots"></div>
       </div>
 
       <div class="export-grid">
@@ -576,7 +640,8 @@
             <span class="upload-progress-label" id="wavePlanProgressLabel">0%</span>
           </div>
           <div class="export-text-row">
-            <button type="button" class="export-text-btn" id="copyWavePlanTextBtn">COPY WHATSAPP MESSAGE</button>
+            <button type="button" class="export-text-btn" id="copyWavePlanTextBtn">COPY MESSAGE</button>
+            <span class="export-text-sep">-</span>
             <button type="button" class="export-text-btn" id="copyWavePlanImageBtn">COPY IMAGE</button>
           </div>
         </div>
@@ -595,7 +660,8 @@
             <span class="upload-progress-label" id="atlasCollectionsProgressLabel">0%</span>
           </div>
           <div class="export-text-row">
-            <button type="button" class="export-text-btn" id="copyAtlasCollectionsTextBtn">COPY WHATSAPP MESSAGE</button>
+            <button type="button" class="export-text-btn" id="copyAtlasCollectionsTextBtn">COPY MESSAGE</button>
+            <span class="export-text-sep">-</span>
             <button type="button" class="export-text-btn" id="copyAtlasCollectionsImageBtn">COPY IMAGE</button>
           </div>
         </div>
@@ -614,7 +680,8 @@
             <span class="upload-progress-label" id="waveBlueprintProgressLabel">0%</span>
           </div>
           <div class="export-text-row">
-            <button type="button" class="export-text-btn" id="copyWaveBlueprintTextBtn">COPY WHATSAPP MESSAGE</button>
+            <button type="button" class="export-text-btn" id="copyWaveBlueprintTextBtn">COPY MESSAGE</button>
+            <span class="export-text-sep">-</span>
             <button type="button" class="export-text-btn" id="copyWaveBlueprintImageBtn">COPY IMAGE</button>
           </div>
         </div>
@@ -897,9 +964,15 @@ function refreshDetailsStatus(){
 ['stationCode','planDate'].forEach(id => document.getElementById(id).addEventListener('input', refreshDetailsStatus));
 
 function updateGenerateButtonState(){
+  // GENERATE is never locked off — with no roster/routes uploaded yet,
+  // clicking it just drops straight into build-by-hand mode instead of
+  // doing nothing. It looks like Build Wave Plan By Hand (off at rest,
+  // red only while clicked) until there's actually something to generate.
   const hasRoster = !!document.getElementById('rosterFile').files[0];
   const hasRoutes = !!document.getElementById('routesFile').files[0];
-  document.getElementById('goBtn').disabled = !(hasRoster && hasRoutes);
+  const goBtn = document.getElementById('goBtn');
+  goBtn.disabled = false;
+  goBtn.classList.toggle('btn-empty-state', !(hasRoster && hasRoutes));
 }
 
 function updateConfirmListButtonVisibility(){
@@ -1101,20 +1174,25 @@ function tokensFuzzySubset(small, big, threshold=0.82){
 
 /* ---------- wave plan text parsing (ports parse_waveplan) ---------- */
 function parseStagingText(text){
-  const staging = {}, stagingTimes = {};
+  const staging = {}, stagingTimes = {}, serviceInfo = {};
   let firstStagingTime = null;
-  const re = /^\s*\S+\s*\|\s*(CA_[A-Za-z0-9]+)\s*\|\s*[^|]+\|\s*([\d:]+\s*[AP]M)\s*\|\s*STG-([A-Za-z]+)\.(\d+)\s*\|/;
+  // Same line format as before, but now also captures the leading DSP field
+  // and the SERVICE TYPE field (previously matched and discarded) so a
+  // route running under a different DSP or service type can be spotted in
+  // the review table before the plan is finalized.
+  const re = /^\s*(\S+)\s*\|\s*(CA_[A-Za-z0-9]+)\s*\|\s*([^|]+?)\s*\|\s*([\d:]+\s*[AP]M)\s*\|\s*STG-([A-Za-z]+)\.(\d+)\s*\|/;
   for(const line of text.split(/\r?\n/)){
     const m = line.match(re);
     if(m){
-      const [, route, timestr, letter, num] = m;
+      const [, dsp, route, serviceType, timestr, letter, num] = m;
       staging[route] = letter+num;
       const t = parse12h(timestr);
       stagingTimes[route] = t;
+      serviceInfo[route] = {dsp: dsp.trim(), service_type: serviceType.trim()};
       if(firstStagingTime===null) firstStagingTime = t;
     }
   }
-  return {staging, stagingTimes, firstStagingTime};
+  return {staging, stagingTimes, firstStagingTime, serviceInfo};
 }
 function parseAtlasText(text){
   const counts = {};
@@ -1291,7 +1369,8 @@ function updatePreGenerateValidation(){
   }
   if(noVan.length){
     const names = [...new Set(noVan)];
-    el.textContent = `${names.length} driver(s) have no van match: ${names.join(', ')} — check the roster before generating.`;
+    const label = `${names.length} driver(s) have no van match:`.toUpperCase();
+    el.textContent = `${label} ${names.join(', ')} — check the roster before generating.`;
     el.style.display = 'block';
   }else{
     el.style.display = 'none';
@@ -1338,7 +1417,7 @@ async function runPipeline(driverOverrides={}, droppedRoutes=new Set()){
     const hcText = document.getElementById('hcText').value;
     const hvText = document.getElementById('hvText').value;
 
-    const {staging, stagingTimes} = parseStagingText(wpText);
+    const {staging, stagingTimes, serviceInfo} = parseStagingText(wpText);
     const atlasCounts = parseAtlasText(hvText);
     const collectionCounts = parseHomeCollectionsText(hcText);
     log(`Staging lines matched: ${Object.keys(staging).length}`);
@@ -1351,14 +1430,14 @@ async function runPipeline(driverOverrides={}, droppedRoutes=new Set()){
     const conflicts = detectConflicts(rawRows, driverOverrides, droppedRoutes);
     if(conflicts.length){
       log(`CONFLICTS_DETECTED: ${conflicts.length}`);
-      showConflicts(conflicts, {rawRows, roster, staging, stagingTimes, atlasCounts, collectionCounts, station, planDate});
+      showConflicts(conflicts, {rawRows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate});
       setStatus('warn', `${conflicts.length} conflict(s) need resolving before output can be generated — see below.`);
       return;
     }
     document.getElementById('conflictCard').style.display = 'none';
 
     const rows = applyConflictResolutions(rawRows, driverOverrides, droppedRoutes);
-    buildOutput(rows, roster, staging, stagingTimes, atlasCounts, collectionCounts, station, planDate);
+    buildOutput(rows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate);
     setStatus('', '');
   }catch(err){
     console.error(err);
@@ -1411,7 +1490,7 @@ document.getElementById('resolveBtn').onclick = () => {
 };
 
 /* ---------- output: full wave plan ---------- */
-function buildOutput(rows, roster, staging, stagingTimes, atlasCounts, collectionCounts, station, planDate){
+function buildOutput(rows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate){
   const built = [];
   for(const row of rows){
     const route = row.route, driver = row.driver;
@@ -1419,6 +1498,7 @@ function buildOutput(rows, roster, staging, stagingTimes, atlasCounts, collectio
     const hv = atlasCounts[route] || 0;
     const coll = collectionCounts[route] || 0;
     const vanEntry = matchVan(driver, roster);
+    const svc = (serviceInfo && serviceInfo[route]) || null;
 
     const stMin = stagingTimes[route];
     let waveLabel = "WAVE ?", waveTimeStr = null;
@@ -1437,6 +1517,8 @@ function buildOutput(rows, roster, staging, stagingTimes, atlasCounts, collectio
       reg: vanEntry ? vanEntry.reg : null,
       ride_along_trainee: vanEntry ? vanEntry.ride_along_trainee : null,
       ride_along_day: (vanEntry && vanEntry.ride_along_trainee) ? vanEntry.ride_along_day : null,
+      dsp: svc ? svc.dsp : null,
+      service_type: svc ? svc.service_type : null,
     });
   }
 
@@ -1462,19 +1544,45 @@ function buildOutput(rows, roster, staging, stagingTimes, atlasCounts, collectio
 
 /* ---------- review modal: full-list scan, inline editing, full error list ---------- */
 let lastBuilt = null, lastStation = '', lastPlanDate = '', lastRoster = null;
+let isManualEntryMode = false;
 
+// A row with nothing typed into ANY of its cells isn't broken and isn't a
+// route yet — it's an untouched blank row (manual entry's starting rows,
+// or a spare added with + Add Row) waiting to be filled in. It only
+// starts counting once something has been entered into it, anywhere.
+function isBlankReviewRow(r){
+  return !r.route && !r.stage && !r.wave && !r.time && !r.driver
+    && (r.van==null || r.van==='') && !r.reg
+    && !r.high_value && !r.collection && !r.arrival;
+}
 function computeIssues(built){
-  const noVan = built.filter(r => r.van==null || r.van==='').map(r => [r.route, r.driver]);
-  const noWave = built.filter(r => r.wave === 'WAVE ?').map(r => [r.route, r.driver]);
-  return {noVan, noWave};
+  const noVan = built.filter(r => !isBlankReviewRow(r) && (r.van==null || r.van==='')).map(r => [r.route, r.driver]);
+  const noWave = built.filter(r => !isBlankReviewRow(r) && r.wave === 'WAVE ?').map(r => [r.route, r.driver]);
+  // Reverse check: a driver who has a van on today's roster but never turns
+  // up against any route in the built table — e.g. they were given a van
+  // but their route export is missing, or their name is spelled too
+  // differently for the fuzzy match to bridge. Skipped entirely in manual
+  // entry (no roster has been loaded) and once no roster is present at all.
+  let unmatchedRoster = [];
+  if(lastRoster && lastRoster.length){
+    const routeDrivers = built.filter(r => !isBlankReviewRow(r) && r.driver).map(r => ({driver: r.driver}));
+    unmatchedRoster = lastRoster.filter(entry => entry.driver && !matchVan(entry.driver, routeDrivers))
+      .map(entry => [entry.van, entry.driver]);
+  }
+  return {noVan, noWave, unmatchedRoster};
 }
 
 function renderReviewErrors(issues){
   const el = document.getElementById('reviewErrors');
   const banner = document.getElementById('successBanner');
-  if(!issues.noVan.length && !issues.noWave.length){
+  if(!issues.noVan.length && !issues.noWave.length && !issues.unmatchedRoster.length){
     el.innerHTML = '';
-    if(banner) banner.style.display = 'block';
+    if(banner){
+      banner.textContent = isManualEntryMode
+        ? "FOR SYSTEM ERRORS OR MISSING EXPORTS, ROWS ONLY COUNT TOWARD ROUTES ONCE YOU'VE TYPED SOMETHING INTO THEM."
+        : '✓ ALL ROUTES MATCHED — NO ERRORS DETECTED';
+      banner.style.display = 'block';
+    }
     return;
   }
   if(banner) banner.style.display = 'none';
@@ -1493,17 +1601,43 @@ function renderReviewErrors(issues){
     });
     html += '</ul>';
   }
+  if(issues.unmatchedRoster.length){
+    html += `<h3>${issues.unmatchedRoster.length} roster driver(s) with no matching route today</h3><ul>`;
+    issues.unmatchedRoster.forEach(([van,driver]) => {
+      html += `<li>Van ${van} — ${driver}</li>`;
+    });
+    html += '</ul>';
+  }
   html += '</div>';
   el.innerHTML = html;
 }
 
+function reviewRowHasIssue(r){
+  return !isBlankReviewRow(r) && ((r.van==null || r.van==='') || r.wave === 'WAVE ?');
+}
+
 function renderReviewTable(built){
+  // Rows with an unresolved issue (no van match / no wave match) float to
+  // the top so they're impossible to miss — everything else keeps its
+  // original relative order below them. Once a row is fixed it drops back
+  // out of the "issues" group and re-renders in its rightful spot among
+  // the other non-issue rows, since sorting is recomputed from scratch
+  // every render rather than being a one-off shuffle.
+  const order = built.map((r, i) => i);
+  order.sort((a, b) => {
+    const issueA = reviewRowHasIssue(built[a]);
+    const issueB = reviewRowHasIssue(built[b]);
+    if(issueA === issueB) return a - b;
+    return issueA ? -1 : 1;
+  });
   let html = '';
-  built.forEach((r, i) => {
-    const hasIssue = (r.van==null || r.van==='') || r.wave === 'WAVE ?';
+  order.forEach(i => {
+    const r = built[i];
+    const hasIssue = reviewRowHasIssue(r);
     html += `<tr data-idx="${i}"${hasIssue ? ' class="row-error"' : ''}>
       <td contenteditable="true" data-field="route">${(r.route||'').toString().replace(/^CA_/,'')}</td>
       <td contenteditable="true" data-field="stage">${r.stage||''}</td>
+      <td class="review-service-cell" data-field="service_type" title="${r.dsp ? 'DSP: '+r.dsp : ''}">${r.service_type||''}</td>
       <td contenteditable="true" data-field="wave">${r.wave||''}</td>
       <td contenteditable="true" data-field="time">${r.time||''}</td>
       <td contenteditable="true" data-field="driver">${r.driver||''}</td>
@@ -1512,10 +1646,84 @@ function renderReviewTable(built){
       <td contenteditable="true" data-field="high_value">${r.high_value||0}</td>
       <td contenteditable="true" data-field="collection">${r.collection||0}</td>
       <td contenteditable="true" data-field="arrival">${r.arrival||''}</td>
+      <td class="row-actions-cell"><button type="button" class="row-del-btn" data-idx="${i}" title="Remove this row">✕</button></td>
     </tr>`;
   });
   document.getElementById('reviewTableBody').innerHTML = html;
 }
+
+// Reads whatever is currently in the editable cells back into lastBuilt,
+// without re-rendering — shared by Apply Changes, Add Row and the
+// per-row delete button so none of them silently discard edits the
+// person made to *other* rows before clicking.
+function syncReviewTableEdits(){
+  const rows = [...document.querySelectorAll('#reviewTableBody tr')];
+  rows.forEach(tr => {
+    const idx = parseInt(tr.dataset.idx, 10);
+    const item = lastBuilt[idx];
+    if(!item) return;
+    tr.querySelectorAll('td[data-field]').forEach(td => {
+      const field = td.dataset.field;
+      const text = td.textContent.trim();
+      if(field === 'high_value' || field === 'collection'){
+        item[field] = parseInt(text,10) || 0;
+      }else if(field === 'van'){
+        item.van = text ? (parseInt(text,10) || text) : null;
+      }else{
+        item[field] = text || null;
+      }
+    });
+  });
+}
+
+function blankReviewRow(){
+  return {route:null, stage:null, wave:null, time:null, driver:null, van:null, reg:null, high_value:0, collection:0, arrival:null, dsp:null, service_type:null};
+}
+
+// Deletes one row from the review table — for a stray route Amazon has
+// attached that doesn't belong to this station/DSP, or for clearing out
+// a spare blank row left over from manual entry.
+function deleteReviewRow(idx){
+  if(!lastBuilt || !lastBuilt.length) return;
+  syncReviewTableEdits();
+  lastBuilt.splice(idx, 1);
+  populateResultsPage(lastBuilt, lastStation, lastPlanDate);
+}
+
+document.getElementById('reviewTableBody').addEventListener('click', (e) => {
+  const btn = e.target.closest('.row-del-btn');
+  if(!btn) return;
+  deleteReviewRow(parseInt(btn.dataset.idx, 10));
+});
+
+document.getElementById('addRowBtn').addEventListener('mousedown', (e) => e.preventDefault());
+document.getElementById('addRowBtn').onclick = () => {
+  if(!lastBuilt) return;
+  syncReviewTableEdits();
+  lastBuilt.push(blankReviewRow());
+  populateResultsPage(lastBuilt, lastStation, lastPlanDate);
+  // scroll the fresh row into view since long tables push it below the fold
+  const rows = document.querySelectorAll('#reviewTableBody tr');
+  const last = rows[rows.length - 1];
+  if(last) last.scrollIntoView({block:'nearest'});
+};
+
+// Enter Wave Plan Manually — skips the upload/parsing pipeline entirely
+// and opens the same review page with a blank 15-row table (enough rows
+// that the table's scrollbar is active from the start), for days the
+// exports are broken or missing and the plan has to be typed in by hand.
+// Untouched blank rows don't count toward the ROUTES stat — see
+// isBlankReviewRow() — so this only starts counting as rows are filled in.
+function enterManualEntryMode(){
+  const station = document.getElementById('stationCode').value.trim() || 'STATION';
+  const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
+  isManualEntryMode = true;
+  lastBuilt = Array.from({length:15}, blankReviewRow);
+  lastStation = station; lastPlanDate = planDate;
+  populateResultsPage(lastBuilt, station, planDate);
+  openReviewModal();
+}
+document.getElementById('manualEntryBtn').onclick = enterManualEntryMode;
 
 function openReviewModal(){
   document.getElementById('pageInput').style.display = 'none';
@@ -1542,15 +1750,17 @@ function populateResultsPage(built, station, planDate){
   const ddmm = ddmmMatch ? ddmmMatch[1] : planDate;
   document.getElementById('resultsStationHeader').textContent = `${station} WAVE PLAN ${ddmm}`;
 
+  const routeRows = built.filter(r => !isBlankReviewRow(r));
+  const routeCount = routeRows.length;
   const vanCount = new Set(built.filter(r=>r.van!=null && r.van!=='').map(r=>r.van)).size;
   const atlasTotal = built.reduce((s,r)=>s+(r.high_value||0),0);
   const collTotal = built.reduce((s,r)=>s+(r.collection||0),0);
-  const errorCount = issues.noVan.length + issues.noWave.length;
-  document.getElementById('statRoutes').textContent = built.length;
+  const errorCount = issues.noVan.length + issues.noWave.length + issues.unmatchedRoster.length;
+  document.getElementById('statRoutes').textContent = routeCount;
   document.getElementById('statRoutes').classList.add('stat-good');
   document.getElementById('statVans').textContent = vanCount;
-  document.getElementById('statVans').classList.toggle('stat-good', vanCount === built.length);
-  document.getElementById('statVans').classList.toggle('stat-bad', vanCount !== built.length);
+  document.getElementById('statVans').classList.toggle('stat-good', vanCount === routeCount);
+  document.getElementById('statVans').classList.toggle('stat-bad', vanCount !== routeCount);
   document.getElementById('statAtlas').textContent = atlasTotal;
   document.getElementById('statAtlas').classList.toggle('stat-good', atlasTotal >= 1);
   document.getElementById('statAtlas').classList.toggle('stat-bad', atlasTotal === 0);
@@ -1565,8 +1775,37 @@ function populateResultsPage(built, station, planDate){
 
   renderReviewErrors(issues);
   renderReviewTable(built);
+  applyReviewSearchFilter();
   setExportStatus('', '');
 }
+
+// Filters the review table by whatever's typed into the search box —
+// matches EVERY column (route, stage, service, wave, queue, driver, van,
+// reg, atlas, collection, arrival), not just a fixed subset, by reading
+// each row's full rendered text. The query is split on whitespace and
+// every word must appear somewhere in the row (in any order, across any
+// columns), so "wave 1 standard parcel" finds a row whose WAVE cell says
+// "WAVE 1" and whose SERVICE cell says "Standard Parcel" even though
+// those live in different columns and a plain substring match wouldn't
+// see them as adjacent. A single word behaves like a normal substring
+// search. Purely a display filter: it hides non-matching <tr>s, it never
+// touches lastBuilt or the data-idx values the edit/delete logic relies on.
+function applyReviewSearchFilter(){
+  const input = document.getElementById('reviewSearchInput');
+  const countEl = document.getElementById('reviewSearchCount');
+  if(!input) return;
+  const words = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const rows = [...document.querySelectorAll('#reviewTableBody tr')];
+  let shown = 0;
+  rows.forEach(tr => {
+    const haystack = tr.textContent.toLowerCase();
+    const match = !words.length || words.every(w => haystack.includes(w));
+    tr.style.display = match ? '' : 'none';
+    if(match) shown++;
+  });
+  if(countEl) countEl.textContent = words.length ? `${shown} of ${rows.length} shown` : '';
+}
+document.getElementById('reviewSearchInput').addEventListener('input', applyReviewSearchFilter);
 
 /* ---------- export options: render-on-click outputs + clipboard text ---------- */
 function setExportStatus(){} // export status strip removed — kept as a no-op so existing call sites stay harmless
@@ -1705,11 +1944,24 @@ const IMG_MUTED_GREY = '#7a7a7a';
 // picker is reached.
 const ACCENT_PRESETS = [
   { name: 'Red', hex: '#cc0000' },
-  { name: 'Forest Green', hex: '#15803d' },
+  { name: 'Green', hex: '#15803d' },
   { name: 'Blue', hex: '#1d4ed8' },
   { name: 'Purple', hex: '#7c3aed' },
-  { name: 'Amber', hex: '#b45309' },
+  { name: 'Orange', hex: '#b45309' },
+  { name: 'Teal', hex: '#0f766e' },
+  { name: 'Navy', hex: '#1e3a5f' },
+  { name: 'Maroon', hex: '#9f1239' },
+  { name: 'Indigo', hex: '#4338ca' },
+  { name: 'Cyan', hex: '#0e7490' },
+  { name: 'Olive', hex: '#4d7c0f' },
+  { name: 'Brown', hex: '#78350f' },
+  { name: 'Pink', hex: '#be185d' },
+  { name: 'Slate', hex: '#475569' },
+  { name: 'Gold', hex: '#a16207' },
 ];
+
+// Red every time the page loads — the picked accent is a this-session
+// choice only, not remembered across reloads.
 let selectedAccentHex = IMG_RED;
 
 function imgHexToRgb(hex){
@@ -1726,7 +1978,6 @@ function imgLightTint(hex, amount = 0.88){
   const mix = (c) => Math.round(c + (255 - c) * amount);
   return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
 }
-
 // Every DOWNLOAD button (and each export tile's icon) follows the selected
 // accent (Wave Blueprint's own .xlsx has no colour in it, but it still
 // matches for consistency). VIEW buttons stay green regardless.
@@ -1743,26 +1994,40 @@ function applyAccentToButtons(hex){
   document.documentElement.style.setProperty('--accent-btn-hover', accentButtonHoverShade(hex));
 }
 
+// "Theme" bar: a live chip on the left names whichever colour is active,
+// and the row of dots on the right is how you change it — framed as
+// picking a theme for the export rather than a decorative row of circles.
 function initAccentPicker(){
-  const row = document.getElementById('accentSwatchRow');
+  const dots = document.getElementById('accentThemeDots');
+  const chipSw = document.getElementById('accentThemeChipSw');
+  const chipName = document.getElementById('accentThemeChipName');
   applyAccentToButtons(selectedAccentHex);
-  if(!row) return;
-  ACCENT_PRESETS.forEach(preset => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'accent-swatch';
-    btn.title = preset.name;
-    btn.style.background = preset.hex;
-    btn.style.color = preset.hex;
-    if(preset.hex.toLowerCase() === selectedAccentHex.toLowerCase()) btn.classList.add('selected');
-    btn.onclick = () => {
-      selectedAccentHex = preset.hex;
-      row.querySelectorAll('.accent-swatch').forEach(el => el.classList.remove('selected'));
-      btn.classList.add('selected');
-      applyAccentToButtons(selectedAccentHex);
-    };
-    row.appendChild(btn);
-  });
+  if(!dots || !chipSw || !chipName) return;
+
+  function currentPreset(){
+    return ACCENT_PRESETS.find(p => p.hex.toLowerCase() === selectedAccentHex.toLowerCase()) || ACCENT_PRESETS[0];
+  }
+  function renderDots(){
+    dots.innerHTML = ACCENT_PRESETS.map(preset => {
+      const selected = preset.hex.toLowerCase() === selectedAccentHex.toLowerCase();
+      return `<button type="button" class="accent-theme-dot${selected ? ' selected' : ''}" style="background:${preset.hex}" data-hex="${preset.hex}" title="${preset.name}"></button>`;
+    }).join('');
+    dots.querySelectorAll('.accent-theme-dot').forEach(btn => {
+      btn.onclick = () => {
+        selectedAccentHex = btn.dataset.hex;
+        applyAccentToButtons(selectedAccentHex);
+        renderChip();
+        renderDots();
+      };
+    });
+  }
+  function renderChip(){
+    const preset = currentPreset();
+    chipSw.style.background = preset.hex;
+    chipName.textContent = preset.name;
+  }
+  renderChip();
+  renderDots();
 }
 document.addEventListener('DOMContentLoaded', initAccentPicker);
 if(document.readyState !== 'loading') initAccentPicker();
@@ -2015,15 +2280,6 @@ const IMG_ROW_FONT_SIZE = 20;
 const IMG_ROW_FONT_SIZE_LARGE = 21;
 function imgRowFont(){ return pf('bold', IMG_ROW_FONT_SIZE); }
 function imgRowFontLarge(){ return pf('bold', IMG_ROW_FONT_SIZE_LARGE); }
-
-const IMG_WAVE_PALETTE_PASTEL = {
-  'WAVE 1': ['#BAE6FD', '#0c4a6e'],
-  'WAVE 2': ['#FED7AA', '#7c2d12'],
-  'WAVE 3': ['#FBCFE8', '#831843'],
-  'WAVE 4': ['#DDD6FE', '#4c1d95'],
-  'WAVE 5': ['#BBF7D0', '#14532d'],
-  'WAVE 6': ['#A5F3FC', '#164e63'],
-};
 
 const IMG_HEADER_ROW_H = IMG_DATE_BAR_H;
 const IMG_ROW_H = IS(66);
@@ -2284,7 +2540,7 @@ function imgDisplayCase(name){
     .map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
-function imgDrawTableRows(ctx, x0, y, rows, wavePalette, cols){
+function imgDrawTableRows(ctx, x0, y, rows, cols){
   const tableW = cols.reduce((s, [, w]) => s + w, 0);
   const f = imgRowFont();
   const fb = imgRowFontLarge();
@@ -2306,14 +2562,8 @@ function imgDrawTableRows(ctx, x0, y, rows, wavePalette, cols){
       }else if(label === 'STAGE'){
         imgDrawCellText(ctx, colCx, y, IMG_ROW_H, String(r.stage || '\u2013'), fb, IMG_TEXT_DARK);
       }else if(label === 'WAVE'){
-        const waveTxt = String(r.wave || '\u2013');
-        if(wavePalette && wavePalette[waveTxt]){
-          const [bg, fg] = wavePalette[waveTxt];
-          ctx.fillStyle = bg; ctx.fillRect(cxp, y, w, IMG_ROW_H);
-          imgDrawCellText(ctx, colCx, y, IMG_ROW_H, waveTxt, fb, fg);
-        }else{
-          imgDrawCellText(ctx, colCx, y, IMG_ROW_H, waveTxt, fb, IMG_TEXT_DARK);
-        }
+        // No coloured band any more \u2014 plain text, same colour as ROUTE/STAGE.
+        imgDrawCellText(ctx, colCx, y, IMG_ROW_H, String(r.wave || '\u2013'), fb, IMG_TEXT_DARK);
       }else if(label === 'QUEUE'){
         imgDrawCellText(ctx, colCx, y, IMG_ROW_H, String(r.time || '\u2013'), fb, IMG_TEXT_DARK);
       }else if(label === 'ARRIVAL'){
@@ -2347,8 +2597,12 @@ function imgDrawTableRows(ctx, x0, y, rows, wavePalette, cols){
 }
 
 // ---------- training notice ----------
-const IMG_TRAINING_ROW_GREEN_LIGHT = '#dcf0e2';
-const IMG_TRAINING_ROW_GREEN = '#a8dcc0';
+// The ride-along zebra stripe used to be a fixed green — now it follows
+// whichever accent colour is selected (IMG_RED), tinted toward white at
+// the exact same two strengths the old green used (~0.83 and ~0.60), so
+// the look/contrast stays identical, just recoloured to match the accent.
+function imgTrainingRowLight(){ return imgLightTint(IMG_RED, 0.83); }
+function imgTrainingRowDark(){ return imgLightTint(IMG_RED, 0.60); }
 
 function imgBuildTrainingNoticeCols(nameColW){
   return [
@@ -2388,7 +2642,7 @@ function imgDrawTrainingNotice(ctx, x0, y, nameColW, pairs, totalW){
   const f = imgRowFont();
   const fb = imgRowFontLarge();
   pairs.forEach((p, i) => {
-    const rowBg = (i % 2 === 1) ? IMG_TRAINING_ROW_GREEN : IMG_TRAINING_ROW_GREEN_LIGHT;
+    const rowBg = (i % 2 === 1) ? imgTrainingRowDark() : imgTrainingRowLight();
     ctx.fillStyle = rowBg;
     ctx.fillRect(x0, y, noticeW, IMG_ROW_H);
     let cxp = x0;
@@ -2403,7 +2657,7 @@ function imgDrawTrainingNotice(ctx, x0, y, nameColW, pairs, totalW){
       else if(label === 'REGISTRATION') imgDrawPlate(ctx, colCx, y, IMG_ROW_H, p.reg);
       else if(label === 'ROUTE') imgDrawCellText(ctx, colCx, y, IMG_ROW_H, routeDisp, fb, IMG_TEXT_DARK);
       else if(label === 'STAGE') imgDrawCellText(ctx, colCx, y, IMG_ROW_H, String(p.stage || '\u2013'), fb, IMG_TEXT_DARK);
-      else if(label === 'DAY') imgDrawCellText(ctx, colCx, y, IMG_ROW_H, dayTxt, fb, IMG_GREEN_ACCENT);
+      else if(label === 'DAY') imgDrawCellText(ctx, colCx, y, IMG_ROW_H, dayTxt, fb, IMG_TEXT_DARK);
       else if(label === 'TRAINER') imgDrawCellText(ctx, colCx, y, IMG_ROW_H, imgDisplayCase(p.trainer), f, IMG_TEXT_DARK);
       cxp += w;
     }
@@ -2441,7 +2695,18 @@ function imgDrawTicketStripe(ctx, finalH){
   ctx.fillRect(0, 0, IMG_TICKET_STRIPE_W, finalH);
 }
 
+function normalizeDateDDMMYY(str){
+  // Always show the date pill as DD/MM/YY, whatever format the plan date
+  // was typed or auto-filled in (DD/MM/YY, DD/MM/YYYY, D/M/YY, etc.).
+  const m = String(str||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if(!m) return str;
+  let [, d, mo, y] = m;
+  if(y.length > 2) y = y.slice(-2);
+  return `${d.padStart(2,'0')}/${mo.padStart(2,'0')}/${y.padStart(2,'0')}`;
+}
+
 function imgDrawTicketHeader(ctx, x0, x1, y, stationCode, titleRest, taglineTxt, warningTxt, dateSuffix, stats, pageLabel){
+  dateSuffix = normalizeDateDDMMYY(dateSuffix);
   const titleF = pf('bold', 46);
   const stationW = imgTextW(ctx, stationCode, titleF);
   imgDrawTextAt(ctx, x0, y, stationCode, titleF, IMG_RED);
@@ -2621,7 +2886,7 @@ function renderWavePlanCanvases(built, stationCode, dateSuffix){
 
     const tableFrameTop = y;
     y = imgDrawTableHeader(ctx, x0, y, cols);
-    y = imgDrawTableRows(ctx, x0, y, pageRows, IMG_WAVE_PALETTE_PASTEL, cols);
+    y = imgDrawTableRows(ctx, x0, y, pageRows, cols);
 
     if(pairs.length){
       const res = imgDrawTrainingNotice(ctx, x0, y, cols[0][1], pairs, CARD_W);
@@ -2668,14 +2933,8 @@ function imgDrawAtlasCollectionsRows(ctx, x0, y, rows, cols, CARD_W){
       }else if(label === 'STAGE'){
         imgDrawCellText(ctx, colCx, y, IMG_ROW_H, String(r.stage || '\u2013'), fb, IMG_TEXT_DARK);
       }else if(label === 'WAVE'){
-        const waveTxt = String(r.wave || '\u2013');
-        if(IMG_WAVE_PALETTE_PASTEL[waveTxt]){
-          const [bg, fg] = IMG_WAVE_PALETTE_PASTEL[waveTxt];
-          ctx.fillStyle = bg; ctx.fillRect(cxp, y, w, IMG_ROW_H);
-          imgDrawCellText(ctx, colCx, y, IMG_ROW_H, waveTxt, fb, fg);
-        }else{
-          imgDrawCellText(ctx, colCx, y, IMG_ROW_H, waveTxt, fb, IMG_TEXT_DARK);
-        }
+        // No coloured band any more \u2014 plain text, same colour as ROUTE/STAGE.
+        imgDrawCellText(ctx, colCx, y, IMG_ROW_H, String(r.wave || '\u2013'), fb, IMG_TEXT_DARK);
       }else if(label === 'QUEUE'){
         imgDrawCellText(ctx, colCx, y, IMG_ROW_H, String(r.time || '\u2013'), fb, IMG_TEXT_DARK);
       }else if(label === 'ATLAS'){
@@ -3071,6 +3330,7 @@ function showGeneratingTransition(callback){
 }
 
 function renderResult(built, station, planDate){
+  isManualEntryMode = false;
   lastBuilt = built; lastStation = station; lastPlanDate = planDate;
   populateResultsPage(built, station, planDate);
   setStatus('ok', 'Wave plan generated.');
@@ -3322,7 +3582,15 @@ document.getElementById('routesFile').addEventListener('change', async (e) => {
   });
 });
 
-document.getElementById('goBtn').onclick = () => runPipeline();
+document.getElementById('goBtn').onclick = () => {
+  const hasRoster = !!document.getElementById('rosterFile').files[0];
+  const hasRoutes = !!document.getElementById('routesFile').files[0];
+  if(!(hasRoster && hasRoutes)){
+    enterManualEntryMode();
+    return;
+  }
+  runPipeline();
+};
 
 // If the routes file picker is cancelled (no file chosen), most browsers
 // never fire 'change' — so the confirm-list button (hidden the instant the
