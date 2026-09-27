@@ -8,6 +8,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if(window['pdfjsLib']){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+</script>
 <style>
 @font-face {
   font-family: "CharlesWrightBold";
@@ -63,6 +69,29 @@
   .panel-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;}
   .panel h2{font-size:14.5px; font-weight:600;}
   .pill{font-size:11px; font-family:'IBM Plex Mono',monospace; color:var(--muted); background:var(--surface-2); border:1px solid var(--border); padding:3px 9px; border-radius:14px;}
+  /* Small "i" info icon next to a section label, opening a popover that
+     explains where to get that section's data. */
+  .label-with-info{display:inline-flex; align-items:center; gap:7px; position:relative;}
+  .info-icon{
+    width:16px; height:16px; border-radius:50%; border:1px solid var(--muted); background:none; color:var(--muted);
+    font-size:10.5px; font-weight:700; font-family:'IBM Plex Mono',monospace; line-height:1; cursor:pointer; padding:0;
+    display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .info-icon:hover, .info-icon.active{border-color:var(--accent-btn, var(--red)); color:var(--accent-btn, var(--red));}
+  .info-popover{
+    display:none; position:absolute; top:calc(100% + 8px); left:0; z-index:30; width:250px; max-width:calc(100vw - 60px);
+    background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:12px 14px;
+    font-size:12px; line-height:1.55; color:var(--text); font-weight:400; font-family:'Space Grotesk', system-ui, sans-serif;
+    box-shadow:0 10px 28px rgba(0,0,0,.45); text-transform:none; letter-spacing:normal;
+  }
+  .info-popover.show{display:block;}
+  .info-icon:hover + .info-popover{display:block;}
+  .info-popover::before{
+    content:""; position:absolute; bottom:100%; left:10px; border:6px solid transparent; border-bottom-color:var(--border);
+  }
+  .info-popover::after{
+    content:""; position:absolute; bottom:100%; left:11px; border:5px solid transparent; border-bottom-color:var(--surface-2);
+  }
 
   label{display:block; font-size:12.5px; font-weight:500; color:var(--muted); margin-bottom:6px;}
   input[type=text], input[type=file]{
@@ -376,17 +405,21 @@
       <div class="trio-row">
         <div class="panel">
           <div class="panel-head">
-            <h2>VAN ROSTER</h2>
+            <span class="label-with-info">
+              <h2>VAN ROSTER</h2>
+              <button type="button" class="info-icon" data-info-target="info-van-roster" aria-label="Where to get this">i</button>
+              <div class="info-popover" id="info-van-roster">Exported from Warrior Ops — go to the Day of Ops segment, right-click the van list export and save it as a PDF. Upload that raw PDF here and let the magic happen.</div>
+            </span>
             <span class="pill" id="rosterPill">EMPTY</span>
           </div>
           <div class="dropzone">
-            <input type="file" id="rosterFile" accept=".csv,.xlsx,.xls">
+            <input type="file" id="rosterFile" accept=".csv,.xlsx,.xls,.pdf">
             <div class="dz-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
             </div>
             <div>
               <div class="dz-text">DROP TODAY'S VAN ROSTER HERE</div>
-              <div class="dz-hint mono">.CSV OR .XLSX</div>
+              <div class="dz-hint mono">.PDF (WARRIOR OPS EXPORT)</div>
             </div>
           </div>
           <div class="upload-progress" id="rosterProgress">
@@ -417,7 +450,11 @@
 
         <div class="panel">
           <div class="panel-head">
-            <h2>ROUTES</h2>
+            <span class="label-with-info">
+              <h2>ROUTES</h2>
+              <button type="button" class="info-icon" data-info-target="info-routes" aria-label="Where to get this">i</button>
+              <div class="info-popover" id="info-routes">Exported from Cortex — on the Routes segment page, click the download arrow and upload the file here.</div>
+            </span>
             <span class="pill" id="routesPill">EMPTY</span>
           </div>
           <div class="dropzone">
@@ -427,7 +464,7 @@
             </div>
             <div>
               <div class="dz-text">DROP TODAY'S ROUTES EXPORTS HERE</div>
-              <div class="dz-hint mono">.XLSX</div>
+              <div class="dz-hint mono">.XLSX (CORTEX ROUTES EXPORT)</div>
             </div>
           </div>
           <div class="upload-progress" id="routesProgress">
@@ -438,7 +475,11 @@
 
         <div class="panel">
           <div class="panel-head">
-            <h2>STATION &amp; DATE</h2>
+            <span class="label-with-info">
+              <h2>STATION &amp; DATE</h2>
+              <button type="button" class="info-icon" data-info-target="info-station-date" aria-label="Where to get this">i</button>
+              <div class="info-popover" id="info-station-date">Auto-extracted from the Van Roster and Routes files once uploaded — no need to type these in yourself.</div>
+            </span>
             <span class="pill" id="detailsPill">EMPTY</span>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
@@ -461,7 +502,11 @@
       <div class="text-stack">
         <div class="panel">
           <div class="panel-head">
-            <label for="wpText" style="display:block; font-size:14.5px; font-weight:600; color:var(--text); margin:0;">WAVE PLAN</label>
+            <span class="label-with-info">
+              <label for="wpText" style="display:block; font-size:14.5px; font-weight:600; color:var(--text); margin:0;">WAVE PLAN</label>
+              <button type="button" class="info-icon" data-info-target="info-wave-plan" aria-label="Where to get this">i</button>
+              <div class="info-popover" id="info-wave-plan">Collected from Slack — right-click the three dots beside the Wave Plan message, click "Copy message", and paste the full message here.</div>
+            </span>
             <span class="pill" id="wpTextPill">EMPTY</span>
           </div>
           <textarea id="wpText" placeholder="DSP | ROUTE CODE | SERVICE TYPE | TIME | STAGING LOCATION | WAVE" style="min-height:140px;"></textarea>
@@ -475,7 +520,11 @@
         <div class="pair-row">
           <div class="panel">
             <div class="panel-head">
-              <label for="hvText" style="display:block; font-size:14.5px; font-weight:600; color:var(--text); margin:0;">ATLAS SHIPMENTS</label>
+              <span class="label-with-info">
+                <label for="hvText" style="display:block; font-size:14.5px; font-weight:600; color:var(--text); margin:0;">ATLAS SHIPMENTS</label>
+                <button type="button" class="info-icon" data-info-target="info-atlas" aria-label="Where to get this">i</button>
+                <div class="info-popover" id="info-atlas">Collected from Slack — right-click the three dots beside the Atlas shipments message, click "Copy message", and paste the full message here.</div>
+              </span>
               <span class="pill" id="hvTextPill">EMPTY</span>
             </div>
             <textarea id="hvText" placeholder="UK4627108388 - CA_A132 -" style="min-height:140px;"></textarea>
@@ -487,7 +536,11 @@
           </div>
           <div class="panel">
             <div class="panel-head">
-              <label for="hcText" style="display:block; font-size:14.5px; font-weight:600; color:var(--text); margin:0;">HOME COLLECTIONS</label>
+              <span class="label-with-info">
+                <label for="hcText" style="display:block; font-size:14.5px; font-weight:600; color:var(--text); margin:0;">HOME COLLECTIONS</label>
+                <button type="button" class="info-icon" data-info-target="info-collections" aria-label="Where to get this">i</button>
+                <div class="info-popover" id="info-collections">Collected from Slack — right-click the three dots beside the Home Collections message, click "Copy message", and paste the full message here.</div>
+              </span>
               <span class="pill" id="hcTextPill">EMPTY</span>
             </div>
             <textarea id="hcText" placeholder="CR1227418093 | CA_A139" style="min-height:140px;"></textarea>
@@ -1028,7 +1081,7 @@ function confirmListCaptionText(){
   const station = document.getElementById('stationCode').value.trim() || 'STATION';
   const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
   const dm = (planDate.match(/\d{1,2}\/\d{1,2}/) || [planDate])[0];
-  return `*${station} SAMEDAY ATTENDANCE (${dm})*\n\nCheck your name is on the list and give a thumbs up reaction to confirm👍🏼`;
+  return `*${station} SAME DAY ATTENDANCE (${dm})*\n\nCheck your name is on the list and give a thumbs up reaction to confirm👍🏼`;
 }
 document.getElementById('copyConfirmListTextBtn').onclick = (e) => {
   if(!lastRoster) return;
@@ -1091,9 +1144,13 @@ document.getElementById('rosterFile').addEventListener('change', async (e) => {
       setPill('rosterPill', true, `${roster.length} DRIVERS`);
     }
     if(!parseError){
-      const stationMatch = file.name.match(/(?:^|[_\-.\s])([A-Za-z]{2,4}\d{1,2})(?:[_\-.\s]|$)/i);
+      // A PDF's filename is always just "Warrior_Logistics.pdf" — no station
+      // or date in it the way a named roster CSV/XLSX has — so prefer the
+      // station parsePdfVanRoster read straight out of the PDF's own text,
+      // and fall back to the filename-based match for the CSV/XLSX path.
+      const stationMatch = lastPdfStation || (file.name.match(/(?:^|[_\-.\s])([A-Za-z]{2,4}\d{1,2})(?:[_\-.\s]|$)/i) || [])[1];
       if(stationMatch){
-        document.getElementById('stationCode').value = stationMatch[1].toUpperCase();
+        document.getElementById('stationCode').value = stationMatch.toUpperCase();
       }
       const dateMatch = file.name.match(/(\d{4})-(\d{2})-(\d{2})/);
       if(dateMatch){
@@ -1238,6 +1295,10 @@ function sheetToRows(wb){
 
 /* ---------- van roster parsing ---------- */
 async function parseVanRoster(file){
+  const name = (file.name||"").toLowerCase();
+  if(name.endsWith(".pdf")){
+    return await parsePdfVanRoster(file);
+  }
   const wb = await readWorkbook(file);
   const rows = sheetToRows(wb);
   const headers = rows[0].map(h => (h||"").toString().trim().toLowerCase());
@@ -1255,6 +1316,285 @@ async function parseVanRoster(file){
       ride_along_day: row[idx["ride_along_day"]] ? parseInt(row[idx["ride_along_day"]],10) : 1,
     });
   }
+  return roster;
+}
+
+/* ---------- PDF van roster parsing (Warrior Ops "Day of Ops" export) ----------
+ * Reads the text layer of a printed/exported Warrior Ops Day-of-Ops PDF —
+ * no OCR, no Claude — and reconstructs the two-cards-per-row driver grid
+ * (name / VAN / van-number+type / reg-plate) into the same {van, driver,
+ * reg, ride_along_trainee, ride_along_day} shape the CSV/XLSX path produces,
+ * so everything downstream (matchVan, prelist, review table) is unaffected.
+ *
+ * pdf.js exposes each rendered text run as its own positioned item, and for
+ * uppercase "tracking-wide" labels (headings, the registration-plate font)
+ * that's often one run PER LETTER, while ordinary name/number text stays as
+ * clean whole words. The parser below is built around that: it never trusts
+ * exact line-by-line layout, instead scanning each side of the page as one
+ * ordered word stream and using content (Title Case = name, ALL CAPS/digits
+ * = plate or code) rather than position to tell fields apart — the one place
+ * position still matters (splitting a shared line into left/right cards) uses
+ * a largest-gap split, not a fixed midpoint, since the POC/ride-along blocks
+ * use a narrower two-column layout than the driver-card grid.
+ *
+ * Validated against real DLS4 (22 drivers, 1 page) and DXS1 (53 drivers, 5
+ * pages) exports — every registration plate and van number extracted
+ * matched the page's own "VANS DEPLOYED" counter with zero misreads,
+ * including all 3 ride-along trainee/trainer/van pairings on the DLS4 file. */
+const PDF_PAGE_OFFSET = 2000; // keeps cross-page reading order correct when sorting by y
+const PDF_Y_TOL = 3.5;
+const PDF_DEPLOY_START_PATTERNS = [
+  /^\d+DRIVERSDEPLOYED$/,
+  /^COMMERCIAL\d+OUTEARLY$/,
+  /^CORE\d+DEPLOYED$/,
+];
+const PDF_BOUNDARY_PATTERNS = [
+  /^STANDBY/,
+  /^RIDEALONG/,
+  /^POINTOFCONTACT/,
+  /^SHOWALLDRIVERS/,
+  /^NODRIVERSONSTANDBY/,
+];
+function pdfCompact(txt){ return (txt||"").replace(/[^A-Za-z0-9]/g, "").toUpperCase(); }
+function pdfIsTitleCase(t){ return /^[A-Z][a-zA-Z\-]*[a-z]/.test(t); }
+function pdfIsNoiseStatus(t){ return /^CORE$/i.test(t) || /^\d{1,2}:\d{2}$/.test(t); }
+function pdfFormatReg(chars){
+  const raw = chars.join("").toUpperCase();
+  const m = raw.match(/^([A-Z]{2}\d{2})([A-Z]{3})$/);
+  return m ? m[1]+" "+m[2] : raw;
+}
+function pdfGapSplit(words, threshold=80){
+  const ws = [...words].sort((a,b)=>a.x0-b.x0);
+  if(ws.length < 2) return [ws, []];
+  let bestGap = -1, bestIdx = null;
+  for(let k=1; k<ws.length; k++){
+    const gap = ws[k].x0 - ws[k-1].x0;
+    if(gap > bestGap){ bestGap = gap; bestIdx = k; }
+  }
+  if(bestGap < threshold) return [ws, []];
+  return [ws.slice(0,bestIdx), ws.slice(bestIdx)];
+}
+
+async function extractPdfWords(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  let pageWidth = null;
+  const words = [];
+  for(let p=1; p<=pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const viewport = page.getViewport({scale:1});
+    if(pageWidth==null) pageWidth = viewport.width;
+    const content = await page.getTextContent();
+    for(const item of content.items){
+      const str = (item.str||"").trim();
+      if(!str) continue;
+      const x0 = item.transform[4];
+      const top = (viewport.height - item.transform[5]) + PDF_PAGE_OFFSET*(p-1);
+      const subwords = str.split(/\s+/).filter(Boolean);
+      if(subwords.length <= 1){
+        words.push({x0, top, text: str});
+      } else {
+        // Multiple words sharing one text run — approximate each sub-word's
+        // x by its character offset within the run. Only used for detecting
+        // headings/chrome (compact-matched) and plain paragraph text, never
+        // for the driver-card fields, which always arrive as separate items.
+        let charIdx = 0;
+        const totalLen = str.length || 1;
+        const w = item.width || 0;
+        for(const sw of subwords){
+          const start = str.indexOf(sw, charIdx);
+          const approxX = x0 + w * (start/totalLen);
+          words.push({x0: approxX, top, text: sw});
+          charIdx = start + sw.length;
+        }
+      }
+    }
+  }
+  return {words, pageWidth};
+}
+function pdfGroupLines(words){
+  const sorted = [...words].sort((a,b) => a.top-b.top || a.x0-b.x0);
+  const lines = [];
+  for(const w of sorted){
+    let placed = false;
+    for(const line of lines){
+      if(Math.abs(line[0].top - w.top) <= PDF_Y_TOL){ line.push(w); placed = true; break; }
+    }
+    if(!placed) lines.push([w]);
+  }
+  lines.sort((a,b) => a[0].top - b[0].top);
+  for(const line of lines) line.sort((a,b) => a.x0 - b.x0);
+  return lines;
+}
+function pdfLineText(line){ return line.map(w => w.text).join(" "); }
+function pdfIsChrome(line){
+  const txt = pdfLineText(line);
+  if(/^\d+\/\d+$/.test(txt.trim())) return true;
+  if(pdfCompact(txt) === "WARRIORLOGISTICS") return true;
+  if(line.some(w => w.text.toLowerCase().startsWith("https://"))) return true;
+  if(/^\d{2}\/\d{2}\/\d{4},/.test(txt)) return true;
+  return false;
+}
+
+// Set by parsePdfVanRoster whenever it can read the station code straight
+// out of the PDF's own text (the "See driver deployment ... for DLS4 in one
+// view." sentence that appears on every Day-of-Ops export) — a PDF's
+// filename is always just "Warrior_Logistics.pdf", so it carries no station
+// info the way a named roster CSV/XLSX does, and this is what fills that
+// gap so the confirmation list still gets stamped with the right station.
+let lastPdfStation = null;
+
+async function parsePdfVanRoster(file){
+  lastPdfStation = null;
+  const {words, pageWidth} = await extractPdfWords(file);
+  const midpoint = pageWidth/2;
+  const lines = pdfGroupLines(words);
+
+  // Read the station straight from the PDF's own text — the "See driver
+  // deployment ... for DLS4 in one view." sentence on every Day-of-Ops
+  // export. This has to search pdf.js's own raw item order rather than the
+  // y-grouped lines: that sentence sits at the same page height as the tab
+  // bar (Day of Ops / On-Road Update / ...), so on some exports the two get
+  // merged into one garbled line by y-position, but pdf.js's own item order
+  // keeps this sentence's words contiguous regardless (it's one unbroken
+  // text flow in the source), which is what the flat scan below relies on.
+  for(let k=0; k<words.length-3; k++){
+    if(words[k].text !== "for") continue;
+    if(!/^[A-Za-z]{2,4}$/.test(words[k+1].text)) continue;
+    const hasDigit = /^\d{1,2}$/.test(words[k+2].text);
+    const combined = hasDigit ? words[k+1].text+words[k+2].text : words[k+1].text;
+    if(!/^[A-Za-z]{2,4}\d{1,2}$/.test(combined)) continue;
+    const after = words.slice(k+(hasDigit?3:2), k+(hasDigit?3:2)+3).map(w=>w.text.toLowerCase()).join(" ");
+    if(/^in\s+\S+\s+view/.test(after) || /^in\s+one\s+view/.test(after)){
+      lastPdfStation = combined.toUpperCase();
+      break;
+    }
+  }
+
+  let inCardsRegion = false;
+  const wordsBySide = {left: [], right: []};
+  const rideAlongRaw = []; // [{trainer, van, trainee}]
+
+  let i = 0;
+  const n = lines.length;
+  while(i < n){
+    const line = lines[i];
+    if(pdfIsChrome(line)){ i++; continue; }
+    const txt = pdfLineText(line);
+    const c = pdfCompact(txt);
+
+    if(c.startsWith("RIDEALONG")){
+      i++;
+      let pending = null; // {left: 'SCOTT HELEN', right: 'ASIF AWAIZ'}
+      while(i < n){
+        const cur = lines[i];
+        if(pdfIsChrome(cur)){ i++; continue; }
+        const curTxt = pdfLineText(cur);
+        if(cur.some(w=>w.text==="RA") && cur.some(w=>w.text==="→")){
+          const gtxt = curTxt;
+          const re = /([A-Za-z][A-Za-z\-]*(?:\s+[A-Za-z][A-Za-z\-]*)?)\s*·\s*Van\s*(\d+)/g;
+          const sidesWithPending = ['left','right'].filter(s => pending && pending[s]);
+          let k = 0, m;
+          while((m = re.exec(gtxt)) !== null){
+            const trainee = pending && k < sidesWithPending.length ? pending[sidesWithPending[k]] : null;
+            rideAlongRaw.push({trainer: m[1], van: parseInt(m[2],10), trainee});
+            k++;
+          }
+          pending = null; i++; continue;
+        }
+        const curCompact = pdfCompact(curTxt);
+        if(/^[A-Z]{1,2}$/.test(curCompact) && cur.length <= 2){ i++; continue; } // avatar initials
+        if(pdfIsTitleCase(curTxt) || (/^[A-Z]+$/.test(curCompact) && curCompact.length > 1)){
+          // trainee name line — one or two names side by side
+          const [leftW, rightW] = pdfGapSplit(cur);
+          pending = {
+            left: leftW.length ? leftW.map(w=>w.text).join(" ") : null,
+            right: rightW.length ? rightW.map(w=>w.text).join(" ") : null,
+          };
+          i++; continue;
+        }
+        break;
+      }
+      continue;
+    }
+
+    if(c.startsWith("POINTOFCONTACT")){
+      i++;
+      while(i < n){
+        const nc = pdfCompact(pdfLineText(lines[i]));
+        if(nc.startsWith("RIDEALONG") || PDF_DEPLOY_START_PATTERNS.some(p=>p.test(nc)) || PDF_BOUNDARY_PATTERNS.some(p=>p.test(nc))) break;
+        i++;
+      }
+      continue;
+    }
+
+    if(PDF_DEPLOY_START_PATTERNS.some(p => p.test(c))){ inCardsRegion = true; i++; continue; }
+    if(PDF_BOUNDARY_PATTERNS.some(p => p.test(c))){ inCardsRegion = false; i++; continue; }
+
+    if(inCardsRegion){
+      for(const w of line){
+        if(pdfIsNoiseStatus(w.text)) continue;
+        (w.x0 < midpoint ? wordsBySide.left : wordsBySide.right).push(w);
+      }
+    }
+    i++;
+  }
+
+  const roster = [];
+  for(const side of ['left','right']){
+    const ws = wordsBySide[side].slice().sort((a,b) => a.top-b.top || a.x0-b.x0);
+    let state = 'name', nameBuf = [];
+    let idx = 0;
+    const N = ws.length;
+    while(idx < N){
+      const w = ws[idx];
+      if(w.text === 'VAN'){ state = 'data'; idx++; continue; }
+      if(state === 'name'){
+        if(pdfIsTitleCase(w.text)) nameBuf.push(w.text);
+        idx++; continue;
+      }
+      // state === 'data': gather everything up to the next VAN/name, cluster
+      // by y into sub-lines: [0]=type code (skip), [1]=van number, [2+]=reg
+      const group = [];
+      let j = idx;
+      while(j < N && ws[j].text !== 'VAN' && !pdfIsTitleCase(ws[j].text)){ group.push(ws[j]); j++; }
+      const sublines = [];
+      for(const gw of group){
+        let placed = false;
+        for(const sl of sublines){
+          if(Math.abs(sl[0].top - gw.top) <= 4){ sl.push(gw); placed = true; break; }
+        }
+        if(!placed) sublines.push([gw]);
+      }
+      sublines.sort((a,b) => a[0].top - b[0].top);
+      let vanNum = null;
+      const regChars = [];
+      if(sublines.length >= 2){
+        const vnLine = sublines[1];
+        if(vnLine.length && /^\d+$/.test(vnLine[0].text)) vanNum = parseInt(vnLine[0].text,10);
+        for(const sl of sublines.slice(2)) for(const gw of sl) regChars.push(gw.text);
+      }
+      if(vanNum != null && nameBuf.length){
+        roster.push({
+          van: vanNum,
+          driver: normalizeDriverName(nameBuf.join(" ")),
+          reg: pdfFormatReg(regChars),
+          ride_along_trainee: null,
+          ride_along_day: 1,
+        });
+      }
+      nameBuf = []; state = 'name'; idx = j;
+    }
+  }
+
+  // attach ride-along trainees to their trainer's van entry
+  for(const ra of rideAlongRaw){
+    if(!ra.trainee) continue;
+    const entry = roster.find(r => r.van === ra.van) || matchVan(normalizeDriverName(ra.trainer), roster);
+    if(entry) entry.ride_along_trainee = normalizeDriverName(ra.trainee);
+  }
+
+  roster.sort((a,b) => a.van - b.van);
   return roster;
 }
 
@@ -2013,6 +2353,37 @@ function initAccentPicker(){
 }
 document.addEventListener('DOMContentLoaded', initAccentPicker);
 if(document.readyState !== 'loading') initAccentPicker();
+
+// Little "i" info icons next to each section label — click to open a
+// popover explaining where that section's data comes from. Clicking the
+// icon again, clicking elsewhere, or hitting Escape closes it.
+function initInfoIcons(){
+  const icons = Array.from(document.querySelectorAll('.info-icon[data-info-target]'));
+  function closeAll(except){
+    icons.forEach(btn => {
+      if(btn === except) return;
+      btn.classList.remove('active');
+      const pop = document.getElementById(btn.dataset.infoTarget);
+      if(pop) pop.classList.remove('show');
+    });
+  }
+  icons.forEach(btn => {
+    const pop = document.getElementById(btn.dataset.infoTarget);
+    if(!pop) return;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const willOpen = !pop.classList.contains('show');
+      closeAll(willOpen ? btn : null);
+      pop.classList.toggle('show', willOpen);
+      btn.classList.toggle('active', willOpen);
+    };
+    pop.onclick = (e) => e.stopPropagation();
+  });
+  document.addEventListener('click', () => closeAll(null));
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeAll(null); });
+}
+document.addEventListener('DOMContentLoaded', initInfoIcons);
+if(document.readyState !== 'loading') initInfoIcons();
 
 const IMG_MARGIN = IS(40);
 const IMG_STRIPE_H = IS(14);
@@ -3438,7 +3809,7 @@ function renderPreListCanvas(names, station, planDate){
   imgDrawTicketStripe(ctx, finalH);
 
   let y = IMG_MARGIN;
-  y = imgDrawTicketHeader(ctx, x0, x1, y, station, 'SAMEDAY ATTENDANCE', IMG_PRELIST_TAGLINE, IMG_PRELIST_WARNING, planDate, stats);
+  y = imgDrawTicketHeader(ctx, x0, x1, y, station, 'SAME DAY ATTENDANCE', IMG_PRELIST_TAGLINE, IMG_PRELIST_WARNING, planDate, stats);
 
   const tableFrameTop = y;
 
