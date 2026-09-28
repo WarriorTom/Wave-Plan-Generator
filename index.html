@@ -66,6 +66,12 @@
   .col-left{display:flex; flex-direction:column; gap:18px;}
   .panel{background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:22px 24px; transition:border-color .15s;}
   .panel.done{border-color:var(--green);}
+  /* Home-page input boxes (dropzones, station/date fields, and the
+     WAVE PLAN / ATLAS SHIPMENTS / HOME COLLECTIONS textareas) — hover shows
+     the same solid white outline as when the box is focused/clicked. */
+  .dropzone:hover, #stationCode:hover, #planDate:hover, #wpText:hover, #hvText:hover, #hcText:hover{
+    outline:1.5px solid #fff; outline-offset:1px;
+  }
   .panel-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;}
   .panel h2{font-size:14.5px; font-weight:600;}
   .pill{font-size:11px; font-family:'IBM Plex Mono',monospace; color:var(--muted); background:var(--surface-2); border:1px solid var(--border); padding:3px 9px; border-radius:14px;}
@@ -171,10 +177,10 @@
      DOWNLOAD button follows it. JS sets --accent-btn/--accent-btn-hover on
      these elements; until it does, they fall back to the site's normal
      button colours. */
-  #downloadWavePlanBtn, #downloadAtlasCollectionsBtn, #downloadWaveBlueprintBtn, #downloadConfirmListInlineBtn{
+  #downloadWavePlanBtn, #downloadAtlasCollectionsBtn, #downloadWaveBlueprintBtn, #quickListDownloadBtn{
     background:var(--accent-btn, var(--red));
   }
-  #downloadWavePlanBtn:hover, #downloadAtlasCollectionsBtn:hover, #downloadWaveBlueprintBtn:hover, #downloadConfirmListInlineBtn:hover{
+  #downloadWavePlanBtn:hover, #downloadAtlasCollectionsBtn:hover, #downloadWaveBlueprintBtn:hover, #quickListDownloadBtn:hover{
     background:var(--accent-btn-hover, var(--red-bright));
   }
   /* VIEW buttons are always green, regardless of the accent colour picker —
@@ -324,6 +330,12 @@
      container's radius + overflow:hidden, not from each segment. */
   .accent-theme-dots{display:flex; gap:0; border:1px solid var(--border); border-radius:9px; overflow:hidden; flex-shrink:0;}
   .accent-theme-dot{width:44px; height:30px; border:none; padding:0; cursor:pointer; flex-shrink:0; position:relative; transition:opacity .1s;}
+  /* Compact variant used inside the narrower STANDBY/SAME DAY popups —
+     stacks the label/chip above the dots and shrinks + wraps the dots so
+     all 15 fit without the modal needing to grow much wider. */
+  .accent-picker.compact{flex-direction:column; align-items:stretch; gap:10px;}
+  .accent-picker.compact .accent-theme-dots{flex-wrap:wrap; border-radius:9px;}
+  .accent-picker.compact .accent-theme-dot{width:30px; height:26px;}
   .accent-theme-dot:hover{opacity:.82;}
   .accent-theme-dot.selected::after{
     content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
@@ -361,7 +373,10 @@
         <div class="tagline">EVERYTHING THAT'S NEEDED ALL IN ONE PLACE</div>
       </div>
 
-      <button type="button" class="btn-ghost" id="refreshPageBtn" style="justify-self:end;">↻ REFRESH</button>
+      <div style="display:flex; flex-direction:row; align-items:center; gap:8px; justify-self:end;">
+        <button type="button" class="btn-ghost" id="standbyQuickBtn" style="margin-top:0; width:110px;">STANDBY</button>
+        <button type="button" class="btn-ghost" id="sameDayQuickBtn" style="margin-top:0; width:110px;">SAME DAY</button>
+      </div>
     </div>
 
     <div class="stepper" id="topStepper">
@@ -425,26 +440,6 @@
           <div class="upload-progress" id="rosterProgress">
             <div class="upload-progress-fill" id="rosterProgressFill"></div>
             <span class="upload-progress-label" id="rosterProgressLabel">0%</span>
-          </div>
-          <div class="export-tile" style="display:none; margin-top:12px;" id="confirmListActions">
-            <div class="export-tile-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v3h6V3"/><path d="M9 13l2 2 4-4"/></svg>
-            </div>
-            <div class="export-tile-name">SAME DAY ATTENDANCE</div>
-            <div class="export-tile-desc">Confirmation list sent first</div>
-            <div class="export-tile-btns">
-              <button type="button" class="btn-primary export-btn" id="downloadConfirmListInlineBtn">DOWNLOAD</button>
-              <button type="button" class="export-view-btn" id="viewConfirmListBtn">VIEW</button>
-            </div>
-            <div class="upload-progress" id="confirmListProgress">
-              <div class="upload-progress-fill" id="confirmListProgressFill"></div>
-              <span class="upload-progress-label" id="confirmListProgressLabel">0%</span>
-            </div>
-            <div class="export-text-row">
-              <button type="button" class="export-text-btn" id="copyConfirmListTextBtn">COPY MESSAGE</button>
-              <span class="export-text-sep">-</span>
-              <button type="button" class="export-text-btn" id="copyConfirmListImageBtn">COPY IMAGE</button>
-            </div>
           </div>
         </div>
 
@@ -588,6 +583,71 @@
   </div>
 </div>
 
+<div id="quickListModal" class="wave-modal">
+  <div class="wave-modal-panel" style="max-width:540px;">
+    <div class="results-head" style="margin-bottom:16px;">
+      <h2 style="margin:0;" id="quickListTitle">Same Day Attendance</h2>
+      <button type="button" class="btn-ghost" id="closeQuickListBtn">CLOSE</button>
+    </div>
+    <div class="dropzone" id="quickListDropzone">
+      <input type="file" id="quickListFile" accept=".csv,.xlsx,.xls,.pdf">
+      <div class="dz-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+      </div>
+      <div>
+        <div class="dz-text" id="quickListDzText">DROP TODAY'S PLAN HERE</div>
+        <div class="dz-hint mono">.PDF (WARRIOR OPS EXPORT)</div>
+      </div>
+    </div>
+    <div class="upload-progress" id="quickListProgress">
+      <div class="upload-progress-fill" id="quickListProgressFill"></div>
+      <span class="upload-progress-label" id="quickListProgressLabel">0%</span>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:12px;">
+      <div style="flex:1;">
+        <label for="quickListStation" class="sr-only">Station code</label>
+        <input type="text" id="quickListStation" placeholder="STATION CODE" autocomplete="off" style="text-align:center;">
+      </div>
+      <div style="flex:1;">
+        <label for="quickListDate" class="sr-only">Date</label>
+        <input type="text" id="quickListDate" placeholder="DD/MM/YY" autocomplete="off" style="text-align:center;">
+      </div>
+    </div>
+    <div class="status" id="quickListStatus" style="margin-top:10px;"></div>
+    <div class="accent-picker compact" id="quickListAccentPicker" style="display:none; margin-top:14px; margin-bottom:0;">
+      <div class="accent-theme-left">
+        <span class="accent-theme-label">THEME</span>
+        <div class="accent-theme-chip">
+          <span class="accent-theme-chip-sw"></span>
+          <span class="accent-theme-chip-name"></span>
+        </div>
+        <span class="accent-picker-hint">PICK AN ACCENT COLOUR, THEN CHOOSE AN OUTPUT:</span>
+      </div>
+      <div class="accent-theme-dots"></div>
+    </div>
+    <div class="export-tile" style="display:none; margin-top:16px;" id="quickListActions">
+      <div class="export-tile-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v3h6V3"/><path d="M9 13l2 2 4-4"/></svg>
+      </div>
+      <div class="export-tile-name" id="quickListResultName">SAME DAY ATTENDANCE</div>
+      <div class="export-tile-desc" id="quickListResultDesc"></div>
+      <div class="export-tile-btns">
+        <button type="button" class="btn-primary export-btn" id="quickListDownloadBtn">DOWNLOAD</button>
+        <button type="button" class="export-view-btn" id="quickListViewBtn">VIEW</button>
+      </div>
+      <div class="upload-progress" id="quickListRenderProgress">
+        <div class="upload-progress-fill" id="quickListRenderProgressFill"></div>
+        <span class="upload-progress-label" id="quickListRenderProgressLabel">0%</span>
+      </div>
+      <div class="export-text-row">
+        <button type="button" class="export-text-btn" id="quickListCopyMsgBtn">COPY MESSAGE</button>
+        <span class="export-text-sep">-</span>
+        <button type="button" class="export-text-btn" id="quickListCopyImgBtn">COPY IMAGE</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="imagePreviewModal" class="wave-modal">
   <div class="wave-modal-panel" style="max-width:1200px;">
     <div class="results-head" style="margin-bottom:16px;">
@@ -643,7 +703,7 @@
     <div class="review-table-wrap" id="reviewTableWrap">
       <table class="review-table" id="reviewTable">
         <thead>
-          <tr><th>ROUTE</th><th>STAGE</th><th>SERVICE</th><th>WAVE</th><th>QUEUE</th><th>NAME</th><th>VAN</th><th>REGISTRATION</th><th>ATLAS</th><th>COLLECTION</th><th>ARRIVAL</th><th>TRAINEE</th><th>RA DAY</th><th></th></tr>
+          <tr><th>ROUTE</th><th>STAGE</th><th>WAVE</th><th>QUEUE</th><th>NAME</th><th>VAN</th><th>REGISTRATION</th><th>ATLAS</th><th>COLLECTION</th><th>ARRIVAL</th><th>TRAINEE</th><th>RA DAY</th><th></th></tr>
         </thead>
         <tbody id="reviewTableBody"></tbody>
       </table>
@@ -668,13 +728,13 @@
       <div class="accent-picker">
         <div class="accent-theme-left">
           <span class="accent-theme-label">THEME</span>
-          <div class="accent-theme-chip" id="accentThemeChip">
-            <span class="accent-theme-chip-sw" id="accentThemeChipSw"></span>
-            <span id="accentThemeChipName"></span>
+          <div class="accent-theme-chip">
+            <span class="accent-theme-chip-sw"></span>
+            <span class="accent-theme-chip-name"></span>
           </div>
           <span class="accent-picker-hint">PICK AN ACCENT COLOUR, THEN CHOOSE AN OUTPUT BELOW:</span>
         </div>
-        <div class="accent-theme-dots" id="accentThemeDots"></div>
+        <div class="accent-theme-dots"></div>
       </div>
 
       <div class="export-grid">
@@ -1028,87 +1088,10 @@ function updateGenerateButtonState(){
   goBtn.classList.toggle('btn-empty-state', !(hasRoster && hasRoutes));
 }
 
-function updateConfirmListButtonVisibility(){
-  const wrap = document.getElementById('confirmListActions');
-  if(!wrap) return;
-  const routesFile = document.getElementById('routesFile').files[0];
-  // Gate on the pill's own "done" state, not the lastRoster variable —
-  // lastRoster is set the instant parsing finishes, well before the
-  // cosmetic bar actually completes, so checking it directly let the
-  // button flash on early whenever something else (e.g. the window-focus
-  // safety net below) happened to call this in between.
-  const rosterReady = document.getElementById('rosterPill').classList.contains('done');
-  wrap.style.display = (rosterReady && !routesFile) ? 'flex' : 'none';
-}
-document.getElementById('downloadConfirmListInlineBtn').onclick = () => {
-  if(!lastRoster) return;
-  IMG_RED = selectedAccentHex;
-  runExportButtonProgress('downloadConfirmListInlineBtn', 'confirmListProgress', 'confirmListProgressFill', 'confirmListProgressLabel', 'RENDERING', 'RENDERED', async () => {
-    const station = document.getElementById('stationCode').value.trim() || 'STATION';
-    const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
-    try{
-      await ensureImageFontsReady();
-      const names = buildPreListNames(lastRoster);
-      const canvas = renderPreListCanvas(names, station, planDate);
-      const blob = await canvasToBlob(canvas);
-      triggerDownload(blob, `${station}_SAMEDAY_ATTENDANCE_${dateForFilename(planDate)}.png`);
-    }catch(err){
-      console.error(err);
-      setExportStatus('error', 'Could not render the PNG — see the browser console for details.');
-    }
-  });
-};
-document.getElementById('viewConfirmListBtn').onclick = () => {
-  if(!lastRoster) return;
-  IMG_RED = selectedAccentHex;
-  runExportButtonProgress('viewConfirmListBtn', 'confirmListProgress', 'confirmListProgressFill', 'confirmListProgressLabel', 'RENDERING', 'RENDERED', async () => {
-    const station = document.getElementById('stationCode').value.trim() || 'STATION';
-    const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
-    try{
-      await ensureImageFontsReady();
-      const names = buildPreListNames(lastRoster);
-      const canvas = renderPreListCanvas(names, station, planDate);
-      openImagePreview('Same Day Attendance', canvas.toDataURL('image/png'));
-    }catch(err){
-      console.error(err);
-      setExportStatus('error', 'Could not render the preview — see the browser console for details.');
-    }
-  });
-};
-// Draft wording, same as the other two captions — adjust once there's a
-// real sense of what your team wants to paste alongside this one.
-function confirmListCaptionText(){
-  const station = document.getElementById('stationCode').value.trim() || 'STATION';
-  const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
-  const dm = (planDate.match(/\d{1,2}\/\d{1,2}/) || [planDate])[0];
-  return `*${station} SAME DAY ATTENDANCE (${dm})*\n\nCheck your name is on the list and give a thumbs up reaction to confirm👍🏼`;
-}
-document.getElementById('copyConfirmListTextBtn').onclick = (e) => {
-  if(!lastRoster) return;
-  copyToClipboard(confirmListCaptionText(), e.currentTarget);
-};
-document.getElementById('copyConfirmListImageBtn').onclick = async (e) => {
-  if(!lastRoster) return;
-  const btn = e.currentTarget;
-  IMG_RED = selectedAccentHex;
-  try{
-    await ensureImageFontsReady();
-    const station = document.getElementById('stationCode').value.trim() || 'STATION';
-    const planDate = document.getElementById('planDate').value.trim() || new Date().toLocaleDateString('en-GB');
-    const names = buildPreListNames(lastRoster);
-    const canvas = renderPreListCanvas(names, station, planDate);
-    const blob = await canvasToBlob(canvas);
-    copyImageToClipboard(blob, btn);
-  }catch(err){
-    console.error(err);
-    copyImageToClipboard(null, btn); // no blob to copy — flashes COPY FAILED
-  }
-};
-
 document.getElementById('rosterFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   updateGenerateButtonState();
-  if(!file){ setPill('rosterPill', false, 'EMPTY'); lastRoster = null; updateStepper(); updateConfirmListButtonVisibility(); updatePreGenerateValidation(); return; }
+  if(!file){ setPill('rosterPill', false, 'EMPTY'); lastRoster = null; updateStepper(); updatePreGenerateValidation(); return; }
   let roster = null, parseError = false;
   try{
     roster = await parseVanRoster(file);
@@ -1164,11 +1147,6 @@ document.getElementById('rosterFile').addEventListener('change', async (e) => {
     // had finished, so without this the VANS step never lit up even
     // though the pill itself showed done.
     updateStepper();
-    // Deliberately not re-syncing heights here: if the confirm-list button
-    // shows up (no Routes file yet), Vans is *meant* to grow taller than
-    // Routes/Station & Date without dragging them along — re-syncing now
-    // would stretch them to match it, undoing that.
-    updateConfirmListButtonVisibility();
     updateGenerateButtonState();
     updatePreGenerateValidation();
   });
@@ -1299,6 +1277,13 @@ async function parseVanRoster(file){
   if(name.endsWith(".pdf")){
     return await parsePdfVanRoster(file);
   }
+  // Not a PDF — no station-code sentence, STANDBY section, or export
+  // timestamp to read, so clear out whatever a previously-loaded PDF left
+  // behind rather than leaving stale data from a different file sitting in
+  // these globals.
+  lastPdfStation = null;
+  lastPdfStandby = null;
+  lastPdfExportDate = null;
   const wb = await readWorkbook(file);
   const rows = sheetToRows(wb);
   const headers = rows[0].map(h => (h||"").toString().trim().toLowerCase());
@@ -1444,11 +1429,73 @@ function pdfIsChrome(line){
 // gap so the confirmation list still gets stamped with the right station.
 let lastPdfStation = null;
 
+// Set by parsePdfVanRoster alongside lastPdfStation — the names sitting in
+// the PDF's own "STANDBY — AVAILABLE TO CALL IN" section, which the main
+// roster scan below otherwise treats purely as a boundary marker and
+// discards. Powers the standalone STANDBY quick-list popup. null (not [])
+// on anything that isn't a PDF, so that popup can tell "not a PDF" apart
+// from "PDF said nobody's on standby today".
+let lastPdfStandby = null;
+
+// Set by parsePdfVanRoster alongside the other two — the export's own
+// generation timestamp, which appears as chrome on every page ("27/09/2026,
+// 13:08 Warrior Logistics") and is filtered out everywhere else as noise.
+// The PDF's filename never carries a date (always just
+// "Warrior_Logistics.pdf"), so this is the only date these PDFs carry at
+// all — used to auto-fill the date field in the STANDBY/SAME DAY popups,
+// which have no Routes file to read a date from the way the main pipeline
+// does. Format "DD/MM/YY", matching the planDate field elsewhere.
+let lastPdfExportDate = null;
+
+function extractPdfExportDate(lines){
+  for(const line of lines){
+    const m = pdfLineText(line).match(/^(\d{2})\/(\d{2})\/(\d{4}),/);
+    if(m) return `${m[1]}/${m[2]}/${m[3].slice(2)}`;
+  }
+  return null;
+}
+
+// Scans the full line list for the STANDBY section and pulls out whichever
+// driver names sit in it. Runs as its own pass over the same y-grouped
+// `lines` the main card scan already built — the section always comes
+// last in the export, after ride-alongs and the driver cards, so there's
+// no need to interleave this with that scan's state machine.
+function extractPdfStandbyNames(lines){
+  const names = [];
+  let headingIdx = -1;
+  for(let i = 0; i < lines.length; i++){
+    if(pdfCompact(pdfLineText(lines[i])).startsWith("STANDBYAVAILABLE")){ headingIdx = i; break; }
+  }
+  if(headingIdx === -1) return names;
+  for(let i = headingIdx + 1; i < lines.length; i++){
+    const line = lines[i];
+    if(pdfIsChrome(line)) continue;
+    const txt = pdfLineText(line);
+    const c = pdfCompact(txt);
+    if(c.startsWith("NODRIVERSONSTANDBY")) break;
+    if(c === "STANDBY") continue; // per-card status badge, not a new heading
+    if(/^[A-Z]{1,2}$/.test(c) && line.length <= 2) continue; // avatar initials
+    if(PDF_BOUNDARY_PATTERNS.some(p => p.test(c))) break; // e.g. "Show all drivers..."
+    if(PDF_DEPLOY_START_PATTERNS.some(p => p.test(c))) break;
+    const [leftW, rightW] = pdfGapSplit(line);
+    for(const half of [leftW, rightW]){
+      if(!half.length) continue;
+      const nameTxt = half.map(w => w.text).join(" ");
+      if(pdfIsTitleCase(nameTxt)) names.push(normalizeDriverName(nameTxt));
+    }
+  }
+  return names;
+}
+
 async function parsePdfVanRoster(file){
   lastPdfStation = null;
+  lastPdfStandby = null;
+  lastPdfExportDate = null;
   const {words, pageWidth} = await extractPdfWords(file);
   const midpoint = pageWidth/2;
   const lines = pdfGroupLines(words);
+  lastPdfStandby = extractPdfStandbyNames(lines);
+  lastPdfExportDate = extractPdfExportDate(lines);
 
   // Read the station straight from the PDF's own text — the "See driver
   // deployment ... for DLS4 in one view." sentence on every Day-of-Ops
@@ -1959,7 +2006,6 @@ function renderReviewTable(built){
     html += `<tr data-idx="${i}"${hasIssue ? ' class="row-error"' : ''}>
       <td contenteditable="true" data-field="route">${(r.route||'').toString().replace(/^CA_/,'')}</td>
       <td contenteditable="true" data-field="stage">${r.stage||''}</td>
-      <td class="review-service-cell" data-field="service_type" title="${r.dsp ? 'DSP: '+r.dsp : ''}">${r.service_type||''}</td>
       <td contenteditable="true" data-field="wave">${r.wave||''}</td>
       <td contenteditable="true" data-field="time">${r.time||''}</td>
       <td contenteditable="true" data-field="driver">${r.driver||''}</td>
@@ -2062,12 +2108,6 @@ function closeReviewModal(){
   window.scrollTo(0,0);
 }
 document.getElementById('closeReviewBtn').onclick = closeReviewModal;
-
-document.getElementById('refreshPageBtn').onclick = function(){
-  if(confirm('Start again? This clears everything on this page.')){
-    location.reload();
-  }
-};
 
 function populateResultsPage(built, station, planDate){
   const issues = computeIssues(built);
@@ -2324,36 +2364,40 @@ function applyAccentToButtons(hex){
 // and the row of dots on the right is how you change it — framed as
 // picking a theme for the export rather than a decorative row of circles.
 function initAccentPicker(){
-  const dots = document.getElementById('accentThemeDots');
-  const chipSw = document.getElementById('accentThemeChipSw');
-  const chipName = document.getElementById('accentThemeChipName');
+  // Every panel that carries the .accent-picker markup (the results page's
+  // EXPORT OPTIONS section, plus the compact one in each of the STANDBY /
+  // SAME DAY popups) reads and writes the same selectedAccentHex, so
+  // picking a colour in any one of them re-renders all of them in sync.
+  const pickers = Array.from(document.querySelectorAll('.accent-picker'));
   applyAccentToButtons(selectedAccentHex);
-  if(!dots || !chipSw || !chipName) return;
+  if(!pickers.length) return;
 
   function currentPreset(){
     return ACCENT_PRESETS.find(p => p.hex.toLowerCase() === selectedAccentHex.toLowerCase()) || ACCENT_PRESETS[0];
   }
-  function renderDots(){
-    dots.innerHTML = ACCENT_PRESETS.map(preset => {
-      const selected = preset.hex.toLowerCase() === selectedAccentHex.toLowerCase();
-      return `<button type="button" class="accent-theme-dot${selected ? ' selected' : ''}" style="background:${preset.hex}" data-hex="${preset.hex}" title="${preset.name}"></button>`;
-    }).join('');
-    dots.querySelectorAll('.accent-theme-dot').forEach(btn => {
-      btn.onclick = () => {
-        selectedAccentHex = btn.dataset.hex;
-        applyAccentToButtons(selectedAccentHex);
-        renderChip();
-        renderDots();
-      };
+  function renderAll(){
+    const preset = currentPreset();
+    pickers.forEach(picker => {
+      const dots = picker.querySelector('.accent-theme-dots');
+      const chipSw = picker.querySelector('.accent-theme-chip-sw');
+      const chipName = picker.querySelector('.accent-theme-chip-name');
+      if(chipSw) chipSw.style.background = preset.hex;
+      if(chipName) chipName.textContent = preset.name;
+      if(!dots) return;
+      dots.innerHTML = ACCENT_PRESETS.map(p => {
+        const selected = p.hex.toLowerCase() === selectedAccentHex.toLowerCase();
+        return `<button type="button" class="accent-theme-dot${selected ? ' selected' : ''}" style="background:${p.hex}" data-hex="${p.hex}" title="${p.name}"></button>`;
+      }).join('');
+      dots.querySelectorAll('.accent-theme-dot').forEach(btn => {
+        btn.onclick = () => {
+          selectedAccentHex = btn.dataset.hex;
+          applyAccentToButtons(selectedAccentHex);
+          renderAll();
+        };
+      });
     });
   }
-  function renderChip(){
-    const preset = currentPreset();
-    chipSw.style.background = preset.hex;
-    chipName.textContent = preset.name;
-  }
-  renderChip();
-  renderDots();
+  renderAll();
 }
 document.addEventListener('DOMContentLoaded', initAccentPicker);
 if(document.readyState !== 'loading') initAccentPicker();
@@ -3536,6 +3580,191 @@ document.getElementById('closeImagePreviewBtn').onclick = () => {
   document.getElementById('imagePreviewBody').innerHTML = '';
 };
 
+// ---------- Standalone STANDBY / SAME DAY quick-list popups ----------
+// Independent of the main pipeline on the left — each just lets you drop
+// in a roster (PDF/CSV/XLSX, same parser as the main VAN ROSTER dropzone)
+// and get straight to that one list, without touching Routes/Wave
+// Plan/Atlas/Collections at all.
+let quickListMode = 'sameday'; // 'sameday' | 'standby'
+let quickListRoster = null;
+
+const IMG_STANDBY_TAGLINE = 'DRIVERS AVAILABLE TO CALL IN IF EXTRA COVER IS NEEDED TODAY';
+const IMG_STANDBY_WARNING = 'STANDBY IS NOT A DAY OFF YOU MUST REMAIN AVAILABLE';
+const IMG_STANDBY_FOOTER_CENTER = "STANDBY LIST — NOT PART OF TODAY'S CONFIRMED ROSTER";
+
+const QUICK_LIST_STANDBY_MESSAGE = `🚨 *STANDBY – IMPORTANT* 🚨
+
+Good morning team,
+
+You are all scheduled as *STANDBY* today!
+
+Please understand that you are our *ONLY* standby drivers so it is essential that you remain fully available and contactable.
+
+*STANDBY IS NOT A DAY OFF* but you do not need to come into the depot unless requested, but you *MUST* keep your phone on, have it with you and answer when contacted!
+
+We have had several recent occasions where standby drivers have not answered their phones when needed *THIS CANNOT HAPPEN*
+
+You must remain available and contactable until 12:00PM today If you are required for extra work, a blowout, sickness cover or any other operational requirement, you must be able to respond and attend as required.
+
+Please make sure you are ready and available until 12:00PM
+
+Thank you`;
+
+const QUICK_LIST_CONFIG = {
+  sameday: {
+    title: 'SAME DAY ATTENDANCE',
+    resultName: 'SAME DAY ATTENDANCE',
+    resultDesc: 'Confirmation list, from the roster alone',
+    filenameTag: 'SAMEDAY_ATTENDANCE',
+    canvasOpts: {},
+    captionText: (station, dm) => `*${station} SAME DAY ATTENDANCE (${dm})*\n\nCheck your name is on the list and give a thumbs up reaction to confirm👍🏼`,
+  },
+  standby: {
+    title: 'STANDBY LIST',
+    resultName: 'STANDBY LIST',
+    resultDesc: 'Drivers available to call in today',
+    filenameTag: 'STANDBY_LIST',
+    canvasOpts: {title: 'STANDBY LIST', tagline: IMG_STANDBY_TAGLINE, warning: IMG_STANDBY_WARNING, footerCenter: IMG_STANDBY_FOOTER_CENTER, statLabel: 'STANDBY'},
+    captionText: () => QUICK_LIST_STANDBY_MESSAGE,
+  },
+};
+
+function quickListSetStatus(msg, kind){
+  const el = document.getElementById('quickListStatus');
+  el.textContent = msg || '';
+  el.className = kind ? `status ${kind}` : 'status';
+}
+
+function openQuickList(mode){
+  quickListMode = mode;
+  quickListRoster = null;
+  const cfg = QUICK_LIST_CONFIG[mode];
+  document.getElementById('quickListTitle').textContent = cfg.title;
+  document.getElementById('quickListResultName').textContent = cfg.resultName;
+  document.getElementById('quickListResultDesc').textContent = cfg.resultDesc;
+  document.getElementById('quickListFile').value = '';
+  document.getElementById('quickListStation').value = '';
+  document.getElementById('quickListDate').value = '';
+  quickListSetStatus('');
+  document.getElementById('quickListActions').style.display = 'none';
+  document.getElementById('quickListAccentPicker').style.display = 'none';
+  document.getElementById('quickListProgress').style.display = 'none';
+  document.getElementById('quickListModal').classList.add('open');
+}
+document.getElementById('sameDayQuickBtn').onclick = () => openQuickList('sameday');
+document.getElementById('standbyQuickBtn').onclick = () => openQuickList('standby');
+document.getElementById('closeQuickListBtn').onclick = () => {
+  document.getElementById('quickListModal').classList.remove('open');
+};
+
+document.getElementById('quickListFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  document.getElementById('quickListActions').style.display = 'none';
+  document.getElementById('quickListAccentPicker').style.display = 'none';
+  quickListSetStatus('');
+  let roster = null, parseError = false;
+  try{
+    roster = await parseVanRoster(file);
+  }catch(err){
+    parseError = true;
+  }
+  runUploadProgress('quickListProgress', 'quickListProgressFill', 'quickListProgressLabel', 'UPLOADING', 'UPLOADED', 1200, () => {
+    if(parseError){
+      quickListSetStatus("Could not read that file — check it's a genuine Warrior Ops export.", 'error');
+      return;
+    }
+    quickListRoster = roster;
+    const stationMatch = lastPdfStation || (file.name.match(/(?:^|[_\-.\s])([A-Za-z]{2,4}\d{1,2})(?:[_\-.\s]|$)/i) || [])[1];
+    if(stationMatch) document.getElementById('quickListStation').value = stationMatch.toUpperCase();
+    const dateMatch = file.name.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if(dateMatch){
+      const [, y, mo, d] = dateMatch;
+      document.getElementById('quickListDate').value = `${d}/${mo}/${y.slice(2)}`;
+    }else if(lastPdfExportDate){
+      // A roster PDF's filename is always just "Warrior_Logistics.pdf" —
+      // no date in it to match above — so fall back to the export's own
+      // generation timestamp read out of the PDF's own text.
+      document.getElementById('quickListDate').value = lastPdfExportDate;
+    }
+    if(quickListMode === 'standby' && lastPdfStandby === null){
+      quickListSetStatus('This file has no standby section — upload the Warrior Ops PDF export for a standby list.', 'warn');
+    }
+    document.getElementById('quickListActions').style.display = 'flex';
+    document.getElementById('quickListAccentPicker').style.display = 'flex';
+  });
+});
+
+function quickListBuildNames(){
+  if(quickListMode === 'standby') return (lastPdfStandby || []).map(n => swapFirstLast(n));
+  return buildPreListNames(quickListRoster || []);
+}
+function quickListStationDate(){
+  return {
+    station: document.getElementById('quickListStation').value.trim() || 'STATION',
+    planDate: document.getElementById('quickListDate').value.trim() || new Date().toLocaleDateString('en-GB'),
+  };
+}
+document.getElementById('quickListDownloadBtn').onclick = () => {
+  if(!quickListRoster) return;
+  const cfg = QUICK_LIST_CONFIG[quickListMode];
+  IMG_RED = selectedAccentHex;
+  runExportButtonProgress('quickListDownloadBtn', 'quickListRenderProgress', 'quickListRenderProgressFill', 'quickListRenderProgressLabel', 'RENDERING', 'RENDERED', async () => {
+    const {station, planDate} = quickListStationDate();
+    try{
+      await ensureImageFontsReady();
+      const names = quickListBuildNames();
+      const canvas = renderPreListCanvas(names, station, planDate, cfg.canvasOpts);
+      const blob = await canvasToBlob(canvas);
+      triggerDownload(blob, `${station}_${cfg.filenameTag}_${dateForFilename(planDate)}.png`);
+    }catch(err){
+      console.error(err);
+      quickListSetStatus('Could not render the PNG — see the browser console for details.', 'error');
+    }
+  });
+};
+document.getElementById('quickListViewBtn').onclick = () => {
+  if(!quickListRoster) return;
+  const cfg = QUICK_LIST_CONFIG[quickListMode];
+  IMG_RED = selectedAccentHex;
+  runExportButtonProgress('quickListViewBtn', 'quickListRenderProgress', 'quickListRenderProgressFill', 'quickListRenderProgressLabel', 'RENDERING', 'RENDERED', async () => {
+    const {station, planDate} = quickListStationDate();
+    try{
+      await ensureImageFontsReady();
+      const names = quickListBuildNames();
+      const canvas = renderPreListCanvas(names, station, planDate, cfg.canvasOpts);
+      openImagePreview(cfg.title, canvas.toDataURL('image/png'));
+    }catch(err){
+      console.error(err);
+      quickListSetStatus('Could not render the preview — see the browser console for details.', 'error');
+    }
+  });
+};
+document.getElementById('quickListCopyMsgBtn').onclick = (e) => {
+  if(!quickListRoster) return;
+  const cfg = QUICK_LIST_CONFIG[quickListMode];
+  const {station, planDate} = quickListStationDate();
+  const dm = (planDate.match(/\d{1,2}\/\d{1,2}/) || [planDate])[0];
+  copyToClipboard(cfg.captionText(station, dm), e.currentTarget);
+};
+document.getElementById('quickListCopyImgBtn').onclick = async (e) => {
+  if(!quickListRoster) return;
+  const cfg = QUICK_LIST_CONFIG[quickListMode];
+  const btn = e.currentTarget;
+  IMG_RED = selectedAccentHex;
+  try{
+    await ensureImageFontsReady();
+    const {station, planDate} = quickListStationDate();
+    const names = quickListBuildNames();
+    const canvas = renderPreListCanvas(names, station, planDate, cfg.canvasOpts);
+    const blob = await canvasToBlob(canvas);
+    copyImageToClipboard(blob, btn);
+  }catch(err){
+    console.error(err);
+    copyImageToClipboard(null, btn);
+  }
+};
+
 document.getElementById('viewAtlasCollectionsBtn').onclick = () => {
   if(!lastBuilt){ setExportStatus('error','Nothing to view yet.'); return; }
   IMG_RED = selectedAccentHex;
@@ -3782,10 +4011,18 @@ const IMG_PRELIST_TAGLINE = 'EVERYONE MUST CONFIRM BEFORE 9:30AM TO MAKE SURE DI
 const IMG_PRELIST_WARNING = 'REACT TO THIS MESSAGE TO CONFIRM FOR TODAY';
 const IMG_PRELIST_FOOTER_CENTER = 'THIS IS THE CONFIRMATION LIST THE FULL WAVE PLAN FOLLOWS SEPARATELY';
 
+
 const IMG_PRELIST_NAME_COL_W = IS(480);
 const IMG_PRELIST_COL_GAP = IS(4);
 
-function renderPreListCanvas(names, station, planDate){
+function renderPreListCanvas(names, station, planDate, opts){
+  opts = opts || {};
+  const title = opts.title || 'SAME DAY ATTENDANCE';
+  const tagline = opts.tagline || IMG_PRELIST_TAGLINE;
+  const warning = opts.warning || IMG_PRELIST_WARNING;
+  const footerCenter = opts.footerCenter || IMG_PRELIST_FOOTER_CENTER;
+  const statLabel = opts.statLabel || 'DRIVERS';
+
   names = [...new Set(names)].sort((a, b) => {
     const da = imgDisplayCase(a), db = imgDisplayCase(b);
     return da < db ? -1 : da > db ? 1 : 0;
@@ -3800,7 +4037,7 @@ function renderPreListCanvas(names, station, planDate){
   const x0 = IMG_TICKET_STRIPE_W + IMG_MARGIN, x1 = x0 + CARD_W;
   const divX = x0 + IMG_PRELIST_NAME_COL_W + IMG_PRELIST_COL_GAP / 2;
 
-  const stats = [['DRIVERS', String(names.length)]];
+  const stats = [[statLabel, String(names.length)]];
   const headerH = imgTicketHeaderHeight(true);
   const finalW = x1 + IMG_MARGIN;
   const finalH = IMG_MARGIN + headerH
@@ -3815,7 +4052,7 @@ function renderPreListCanvas(names, station, planDate){
   imgDrawTicketStripe(ctx, finalH);
 
   let y = IMG_MARGIN;
-  y = imgDrawTicketHeader(ctx, x0, x1, y, station, 'SAME DAY ATTENDANCE', IMG_PRELIST_TAGLINE, IMG_PRELIST_WARNING, planDate, stats);
+  y = imgDrawTicketHeader(ctx, x0, x1, y, station, title, tagline, warning, planDate, stats);
 
   const tableFrameTop = y;
 
@@ -3869,25 +4106,16 @@ function renderPreListCanvas(names, station, planDate){
   ctx.stroke();
 
   y += IMG_TICKET_GAP;
-  imgDrawTicketFooter(ctx, x0, x1, y, IMG_PRELIST_FOOTER_CENTER);
+  imgDrawTicketFooter(ctx, x0, x1, y, footerCenter);
 
   return canvas;
 }
 
 /* ---------- auto-fill station/date from the Routes filename ---------- */
-document.getElementById('routesFile').addEventListener('click', () => {
-  // Hide the whole confirm-list block (download button + TEXT button
-  // together) the instant Routes is clicked to browse — not just the
-  // download button — so the pair disappears as one unit right away,
-  // rather than the TEXT button lingering until the file actually lands.
-  const wrap = document.getElementById('confirmListActions');
-  if(wrap) wrap.style.display = 'none';
-});
 document.getElementById('routesFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   updateGenerateButtonState();
-  if(!file){ setPill('routesPill', false, 'EMPTY'); refreshDetailsStatus(); updateConfirmListButtonVisibility(); lastRoutesRows = null; updatePreGenerateValidation(); return; }
-  updateConfirmListButtonVisibility(); // hiding the confirm-list button stays instant, not gated
+  if(!file){ setPill('routesPill', false, 'EMPTY'); refreshDetailsStatus(); lastRoutesRows = null; updatePreGenerateValidation(); return; }
 
   let rows = null, parseError = false;
   try{
@@ -3950,19 +4178,6 @@ document.getElementById('goBtn').onclick = () => {
   }
   runPipeline();
 };
-
-// If the routes file picker is cancelled (no file chosen), most browsers
-// never fire 'change' — so the confirm-list button (hidden the instant the
-// picker opened) would stay hidden forever. Re-check once focus returns,
-// but only after a short delay: 'focus' fires before the browser has
-// finished registering a selected file, so checking immediately here would
-// briefly (and wrongly) flash the button back on before 'change' hides it
-// again a moment later.
-window.addEventListener('focus', () => {
-  setTimeout(() => {
-    if(!document.getElementById('routesFile').files[0]) updateConfirmListButtonVisibility();
-  }, 400);
-});
 
 // initial sync in case the browser restored form values on reload
 refreshTextStatus();
