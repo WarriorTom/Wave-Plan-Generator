@@ -356,9 +356,23 @@
   .row-del-btn:hover{background:rgba(204,0,0,.22); border-color:#cc0000; color:#f8b4b4;}
   #addRowBtn{margin-right:auto;}
   .review-errors{border:1px solid #5c2222; background:#241111; border-radius:7px; padding:16px 18px; margin-bottom:18px; box-sizing:border-box; height:140px; min-height:70px; resize:vertical; overflow:auto; overflow-anchor:none;}
+  /* While a conflict needs picking, the box grows to fit instead of being a
+     cramped scroll window — a dropdown buried in a tiny scrollbox is hard to
+     work with. Once resolved, renderReviewErrors() drops this class and the
+     box goes back to its normal fixed-height, resizable scroll behaviour. */
+  .review-errors.has-conflicts{height:auto; max-height:none; min-height:0; resize:none; overflow:visible;}
   .review-errors h3{margin:0 0 10px; font-size:13.5px; color:#f28b82; font-weight:600; text-transform:uppercase;}
   .review-errors ul{margin:0; padding-left:18px; font-size:12.5px; color:#f2b8b8; line-height:1.7;}
   .review-errors ul + h3{margin-top:14px;}
+  .review-errors > h3{margin-top:16px;}
+  .review-errors > h3:first-child{margin-top:0;}
+  .review-errors-hint{background:#3a2a0f; border:1px solid #6b4a15; border-radius:6px; padding:10px 12px; margin-bottom:14px; font-size:12.5px; color:#f2cf8b; line-height:1.55;}
+  .review-errors .conflict{border:1px solid #5c2222; background:#2c1414; border-radius:8px; padding:12px 14px; margin-bottom:10px;}
+  .review-errors .conflict h4{margin:0 0 8px 0; font-size:12.5px; color:#f28b82; font-weight:600;}
+  .review-errors .conflict label{display:block; font-size:12px; color:var(--text); margin-bottom:6px;}
+  .review-errors .conflict select{width:100%; padding:8px; border-radius:4px; border:1px solid #5c2222; background:var(--surface-2); color:var(--text); font-family:inherit; font-size:13px;}
+  .review-errors .conflict-actions{margin-bottom:16px;}
+  #reviewResolveBtn{padding:9px 16px; font-size:12.5px;}
 </style>
 </head>
 <body>
@@ -553,14 +567,8 @@
         <button type="button" id="manualEntryBtn" class="btn-manual-entry" style="flex:1;">BUILD WAVE PLAN BY HAND</button>
         <button id="goBtn" class="btn-primary" style="flex:1;">GENERATE</button>
       </div>
-
-      <div id="conflictCard" class="conflict-card">
-        <h2>Conflicts need resolving</h2>
-        <div id="conflictList"></div>
-        <div class="actions">
-          <button id="resolveBtn" class="btn-primary" style="padding:11px 18px; font-size:13.5px;">Re-run with resolutions</button>
-        </div>
-      </div>
+      <!-- Conflicts (two drivers on one route, etc.) no longer block Generate here —
+           they're resolved on the results page, mixed into the same error section. -->
 
     </section>
 
@@ -852,7 +860,13 @@ function loadWaveTimes(){
 }
 let WAVE_TIMES = loadWaveTimes(); // wave label -> "HH:MM" 24h release time
 
-let pendingConflictContext = null; // holds parse state while conflicts are resolved in the UI
+// Conflicts (two drivers on one route, one driver on two routes) are no
+// longer resolved before Generate — they're auto-defaulted so a full result
+// can still be shown, then surfaced for review mixed into the results
+// page's error section. These hold what's needed to re-run just the
+// resolution step without re-reading the source files.
+let pendingConflicts = null; // unresolved conflicts (explicit choices not yet made) for the current build
+let pendingConflictCtx = null; // {rawRows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate, driverOverrides, droppedRoutes}
 
 /* ---------- wave schedule editor ---------- */
 function renderWaveRows(){
@@ -1814,16 +1828,30 @@ async function runPipeline(driverOverrides={}, droppedRoutes=new Set()){
     const rawRows = await parseRoutes(routesFile);
     log(`Routes rows: ${rawRows.length}`);
 
+    // Conflicts no longer block Generate. Anything not already given an
+    // explicit choice (driverOverrides/droppedRoutes only ever hold
+    // explicit choices made on the results page) gets a best-guess default
+    // — first candidate for a two-names-one-route row, first route for a
+    // same-driver-on-two-routes row — purely so a complete result can be
+    // shown straight away. The unresolved ones are kept in `pendingConflicts`
+    // and rendered on the results page, mixed into the same error section,
+    // so there's one place to catch everything before the plan goes out.
     const conflicts = detectConflicts(rawRows, driverOverrides, droppedRoutes);
-    if(conflicts.length){
-      log(`CONFLICTS_DETECTED: ${conflicts.length}`);
-      showConflicts(conflicts, {rawRows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate});
-      setStatus('warn', `${conflicts.length} conflict(s) need resolving before output can be generated — see below.`);
-      return;
-    }
-    document.getElementById('conflictCard').style.display = 'none';
+    pendingConflicts = conflicts.length ? conflicts : null;
+    pendingConflictCtx = {rawRows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate, driverOverrides:{...driverOverrides}, droppedRoutes:new Set(droppedRoutes)};
+    if(conflicts.length) log(`CONFLICTS_DETECTED: ${conflicts.length} (defaulted for now — resolve on the results page)`);
 
-    const rows = applyConflictResolutions(rawRows, driverOverrides, droppedRoutes);
+    const displayOverrides = {...driverOverrides};
+    const displayDropped = new Set(droppedRoutes);
+    conflicts.forEach(c => {
+      if(c.type === 'pipe_driver'){
+        displayOverrides[c.route] = c.candidates[0];
+      }else{
+        c.routes.slice(1).forEach(r => displayDropped.add(r));
+      }
+    });
+
+    const rows = applyConflictResolutions(rawRows, displayOverrides, displayDropped);
     buildOutput(rows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate);
     setStatus('', '');
   }catch(err){
@@ -1832,39 +1860,18 @@ async function runPipeline(driverOverrides={}, droppedRoutes=new Set()){
   }
 }
 
-function showConflicts(conflicts, ctx){
-  pendingConflictContext = ctx;
-  const card = document.getElementById('conflictCard');
-  const list = document.getElementById('conflictList');
-  list.innerHTML = '';
-  conflicts.forEach((c, i) => {
-    const div = document.createElement('div');
-    div.className = 'conflict';
-    if(c.type === 'pipe_driver'){
-      div.innerHTML = `<h3>Two drivers listed on one route — ${c.route}</h3>
-        <div class="hint">Raw: ${c.raw}</div>
-        <label>Which driver actually ran this route?</label>
-        <select data-type="pipe_driver" data-route="${c.route}">
-          ${c.candidates.map(name => `<option value="${name}">${name}</option>`).join('')}
-        </select>`;
-    }else{
-      div.innerHTML = `<h3>Same driver on multiple routes — ${c.driver}</h3>
-        <div class="hint">Routes: ${c.routes.join(', ')}</div>
-        <label>Which route is the real one? (the others will be dropped)</label>
-        <select data-type="duplicate_driver" data-routes="${c.routes.join(',')}">
-          ${c.routes.map(r => `<option value="${r}">${r}</option>`).join('')}
-        </select>`;
-    }
-    list.appendChild(div);
-  });
-  card.style.display = 'block';
-}
-
-document.getElementById('resolveBtn').onclick = () => {
-  if(!pendingConflictContext) return;
-  const overrides = {};
-  const dropped = new Set();
-  document.querySelectorAll('#conflictList select').forEach(sel => {
+// Re-runs just the conflict-resolution + build step using the dropdown
+// choices currently showing in the results page's error section, without
+// re-reading the source files or re-triggering the "generating" transition —
+// we're already on the results page, so this just refreshes it in place,
+// the same way APPLY CHANGES refreshes a manually-edited row.
+// Called from the "Re-run with resolutions" button that renderReviewErrors()
+// wires up whenever conflicts are showing.
+function reRunConflictResolutions(){
+  if(!pendingConflictCtx) return;
+  const overrides = {...pendingConflictCtx.driverOverrides};
+  const dropped = new Set(pendingConflictCtx.droppedRoutes);
+  document.querySelectorAll('#reviewErrors .conflict select').forEach(sel => {
     if(sel.dataset.type === 'pipe_driver'){
       overrides[sel.dataset.route] = sel.value;
     }else{
@@ -1873,11 +1880,30 @@ document.getElementById('resolveBtn').onclick = () => {
       routes.forEach(r => { if(r !== keep) dropped.add(r); });
     }
   });
-  runPipeline(overrides, dropped);
-};
+  const {rawRows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate} = pendingConflictCtx;
+
+  const conflicts = detectConflicts(rawRows, overrides, dropped);
+  pendingConflicts = conflicts.length ? conflicts : null;
+  pendingConflictCtx = {rawRows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate, driverOverrides:{...overrides}, droppedRoutes:new Set(dropped)};
+
+  const displayOverrides = {...overrides};
+  const displayDropped = new Set(dropped);
+  conflicts.forEach(c => {
+    if(c.type === 'pipe_driver'){
+      displayOverrides[c.route] = c.candidates[0];
+    }else{
+      c.routes.slice(1).forEach(r => displayDropped.add(r));
+    }
+  });
+
+  const rows = applyConflictResolutions(rawRows, displayOverrides, displayDropped);
+  const built = computeBuiltRows(rows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts);
+  lastBuilt = built; lastStation = station; lastPlanDate = planDate;
+  populateResultsPage(built, station, planDate);
+}
 
 /* ---------- output: full wave plan ---------- */
-function buildOutput(rows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate){
+function computeBuiltRows(rows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts){
   const built = [];
   for(const row of rows){
     const route = row.route, driver = row.driver;
@@ -1918,6 +1944,10 @@ function buildOutput(rows, roster, staging, stagingTimes, serviceInfo, atlasCoun
     log('WARNING: no wave/staging time matched for:');
     issues.noWave.forEach(([route,driver]) => log(`  - ${route}: ${driver}`));
   }
+  if(issues.noRoute.length){
+    log('WARNING: roster driver(s) with no matching route:');
+    issues.noRoute.forEach(([van,driver]) => log(`  - Van ${van}: ${driver}`));
+  }
 
   // sort: earliest wave first (by time), then alphabetically by driver
   built.sort((a,b) => {
@@ -1926,6 +1956,11 @@ function buildOutput(rows, roster, staging, stagingTimes, serviceInfo, atlasCoun
     return a.driver.localeCompare(b.driver);
   });
 
+  return built;
+}
+
+function buildOutput(rows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts, station, planDate){
+  const built = computeBuiltRows(rows, roster, staging, stagingTimes, serviceInfo, atlasCounts, collectionCounts);
   renderResult(built, station, planDate);
 }
 
@@ -1945,13 +1980,43 @@ function isBlankReviewRow(r){
 function computeIssues(built){
   const noVan = built.filter(r => !isBlankReviewRow(r) && (r.van==null || r.van==='')).map(r => [r.route, r.driver]);
   const noWave = built.filter(r => !isBlankReviewRow(r) && r.wave === 'WAVE ?').map(r => [r.route, r.driver]);
-  return {noVan, noWave};
+  // The reverse of "no van match": a van/driver on today's roster that never
+  // got matched to any route at all. On its own this just means Amazon
+  // hasn't picked up a late roster change yet — but when it shows up
+  // alongside a "no van match" entry, the two are very likely the same
+  // swap seen from both sides (a driver swapped in on the roster, and the
+  // driver they replaced still sitting on the route in Amazon's system) —
+  // see matchNoRoutePairing() below, which surfaces that pairing directly.
+  const usedVans = new Set(
+    built.filter(r => !isBlankReviewRow(r) && r.van != null && r.van !== '').map(r => r.van)
+  );
+  const noRoute = (lastRoster || [])
+    .filter(entry => !usedVans.has(entry.van))
+    .map(entry => [entry.van, entry.driver]);
+  return {noVan, noWave, noRoute};
+}
+
+// When there's an equal, non-zero number of "no van match" routes and
+// "no route" roster drivers, that's very likely one driver swap per pair
+// rather than two unrelated problems — e.g. a driver called in sick and
+// was swapped for a substitute on the internal roster, but Amazon's Routes
+// export still has the original driver's name against that route. Flag it
+// as a probable swap so the person fixing it doesn't have to go through
+// every route by hand to find the connection, as happened on 2026-09-28.
+function matchNoRoutePairing(issues){
+  if(!issues.noVan.length || !issues.noRoute.length) return null;
+  return {
+    likely: issues.noVan.length === issues.noRoute.length,
+    noVanNames: issues.noVan.map(([, driver]) => driver),
+    noRouteNames: issues.noRoute.map(([, driver]) => driver),
+  };
 }
 
 function renderReviewErrors(issues){
   const el = document.getElementById('reviewErrors');
   const banner = document.getElementById('successBanner');
-  if(!issues.noVan.length && !issues.noWave.length){
+  const conflicts = pendingConflicts || [];
+  if(!conflicts.length && !issues.noVan.length && !issues.noWave.length && !issues.noRoute.length){
     el.innerHTML = '';
     if(banner){
       banner.textContent = isManualEntryMode
@@ -1962,11 +2027,61 @@ function renderReviewErrors(issues){
     return;
   }
   if(banner) banner.style.display = 'none';
-  let html = '<div class="review-errors">';
+  // Auto-height (no scrollbox) while a conflict needs picking — a dropdown
+  // buried in the normal fixed-height scroll window is hard to work with.
+  // Falls back to the regular fixed-height, resizable scrollbox once every
+  // conflict is resolved (has-conflicts is only added while any remain).
+  let html = `<div class="review-errors${conflicts.length ? ' has-conflicts' : ''}">`;
+
+  // Conflicts (two drivers on one route, one driver on two routes) sit at
+  // the top of the same box as the rest of the errors — Generate already
+  // built the plan using a best-guess default for each, so this is a
+  // review step, not a gate. Pick the right name/route and hit "Re-run
+  // with resolutions" to lock it in.
+  if(conflicts.length){
+    html += `<h3>${conflicts.length} conflict(s) need resolving</h3>`;
+    conflicts.forEach(c => {
+      if(c.type === 'pipe_driver'){
+        html += `<div class="conflict" data-conflict>
+          <h4>Two drivers listed on one route — ${(c.route||'').toString().replace(/^CA_/,'')}</h4>
+          <div class="hint">Raw: ${c.raw}</div>
+          <label>Which driver actually ran this route?</label>
+          <select data-type="pipe_driver" data-route="${c.route}">
+            ${c.candidates.map(name => `<option value="${name}">${name}</option>`).join('')}
+          </select>
+        </div>`;
+      }else{
+        html += `<div class="conflict" data-conflict>
+          <h4>Same driver on multiple routes — ${c.driver}</h4>
+          <div class="hint">Routes: ${c.routes.map(r => r.toString().replace(/^CA_/,'')).join(', ')}</div>
+          <label>Which route is the real one? (the others will be dropped)</label>
+          <select data-type="duplicate_driver" data-routes="${c.routes.join(',')}">
+            ${c.routes.map(r => `<option value="${r}">${r.toString().replace(/^CA_/,'')}</option>`).join('')}
+          </select>
+        </div>`;
+      }
+    });
+    html += `<div class="conflict-actions"><button type="button" class="btn-primary" id="reviewResolveBtn">Re-run with resolutions</button></div>`;
+  }
+
+  const pairing = matchNoRoutePairing(issues);
+  if(pairing && pairing.likely){
+    html += `<div class="review-errors-hint">⚠ LIKELY A DRIVER SWAP: ${issues.noVan.length} route(s) below still show a driver `
+      + `who no longer has a van, and exactly ${issues.noRoute.length} roster driver(s) have a van but no route — `
+      + `probably the same swap(s) seen from each side (e.g. a sick-day substitution Amazon's Routes export hasn't `
+      + `picked up yet). Check whether each "no van match" name below was swapped for one of the "no route" names.</div>`;
+  }
   if(issues.noVan.length){
     html += `<h3>${issues.noVan.length} driver(s) with no van match</h3><ul>`;
     issues.noVan.forEach(([route,driver]) => {
       html += `<li>${(route||'').toString().replace(/^CA_/,'')} — ${driver}</li>`;
+    });
+    html += '</ul>';
+  }
+  if(issues.noRoute.length){
+    html += `<h3>${issues.noRoute.length} driver(s) on the roster with no matching route</h3><ul>`;
+    issues.noRoute.forEach(([van,driver]) => {
+      html += `<li>Van ${van} — ${driver}</li>`;
     });
     html += '</ul>';
   }
@@ -1979,6 +2094,11 @@ function renderReviewErrors(issues){
   }
   html += '</div>';
   el.innerHTML = html;
+
+  if(conflicts.length){
+    const resolveBtn = document.getElementById('reviewResolveBtn');
+    if(resolveBtn) resolveBtn.onclick = reRunConflictResolutions;
+  }
 }
 
 function reviewRowHasIssue(r){
@@ -2121,7 +2241,7 @@ function populateResultsPage(built, station, planDate){
   const vanCount = new Set(built.filter(r=>r.van!=null && r.van!=='').map(r=>r.van)).size;
   const atlasTotal = built.reduce((s,r)=>s+(r.high_value||0),0);
   const collTotal = built.reduce((s,r)=>s+(r.collection||0),0);
-  const errorCount = issues.noVan.length + issues.noWave.length;
+  const errorCount = issues.noVan.length + issues.noWave.length + issues.noRoute.length + (pendingConflicts ? pendingConflicts.length : 0);
   document.getElementById('statRoutes').textContent = routeCount;
   document.getElementById('statRoutes').classList.add('stat-good');
   document.getElementById('statVans').textContent = vanCount;
